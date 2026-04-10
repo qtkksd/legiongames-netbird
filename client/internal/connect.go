@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/netbirdio/netbird/client/internal/amneziawg"
 	log "github.com/sirupsen/logrus"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc/codes"
@@ -295,9 +296,7 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 			IP:              loginResp.GetPeerConfig().GetAddress(),
 			PubKey:          myPrivateKey.PublicKey().String(),
 			KernelInterface: device.WireGuardModuleIsLoaded() && !netstack.IsEnabled(),
-			FQDN:            loginResp.GetPeerConfig().GetFqdn(),
-		}
-		c.statusRecorder.UpdateLocalPeerState(localPeerState)
+			KernelInterface: device.WireGuardModuleIsLoaded() && !netstack.IsEnabled(),
 
 		signalURL := fmt.Sprintf("%s://%s",
 			strings.ToLower(loginResp.GetNetbirdConfig().GetSignal().GetProtocol().String()),
@@ -563,6 +562,16 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
 		LogPath: logPath,
 
 		ProfileConfig: config,
+	}
+
+	if peerConfig.AmneziaConfig != nil {
+
+		engineConf.AmneziaConfig = amneziawg.FromProtobuf(peerConfig.AmneziaConfig)
+		log.Infof("Init amneziaWG config from peer: %v", engineConf.AmneziaConfig)
+	} else {
+
+		engineConf.AmneziaConfig = amneziawg.AmneziaConfig{}
+		log.Infof("Init empty amneziaWG config")
 	}
 
 	if config.PreSharedKey != "" {
