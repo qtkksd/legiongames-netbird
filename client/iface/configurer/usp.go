@@ -90,7 +90,7 @@ func (c *WGUSPConfigurer) SetPresharedKey(peerKey string, psk wgtypes.Key, updat
 	}
 
 	cfg := buildPresharedKeyConfig(parsedPeerKey, psk, updateOnly)
-	return c.device.IpcSet(toWgUserspaceString(cfg))
+	return c.device.IpcSet(c.toWgUserspaceString(cfg))
 }
 
 func (c *WGUSPConfigurer) UpdatePeer(peerKey string, allowedIps []netip.Prefix, keepAlive time.Duration, endpoint *net.UDPAddr, preSharedKey *wgtypes.Key) error {
