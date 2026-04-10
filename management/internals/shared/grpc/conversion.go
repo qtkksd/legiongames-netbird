@@ -110,6 +110,7 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
 			Version:      settings.AutoUpdateVersion,
 			AlwaysUpdate: settings.AutoUpdateAlways,
 		},
+		AmneziaConfig: &proto.AmneziaConfig{},
 	}
 }
 
