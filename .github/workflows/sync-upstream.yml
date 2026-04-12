@@ -35,12 +35,6 @@ jobs:
           echo "Found new commits:"
           echo "$NEW"
 
-      - name: Add upstream remote and reset to latest
-        run: |
-          git remote add upstream https://github.com/netbirdio/netbird.git
-          git fetch upstream main
-          git reset --hard upstream/main
-
       - name: Get upstream commit info
         id: upstream
         run: |
