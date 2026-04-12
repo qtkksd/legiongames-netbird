@@ -1,0 +1,74 @@
+From 4e52c7564c5a7067ad5ea872e3ee605bbd77b21c Mon Sep 17 00:00:00 2001
+From: LegionGames Dev <git@legiongames.ru>
+Date: Fri, 10 Apr 2026 14:29:30 +0300
+Subject: [PATCH 11/11] Fix go vet warnings in test files
+
+- Update ice_bind_test.go for AmneziaWG CreateIPv4ReceiverFn API
+- Fix wireguard/device import in filter_routeacl_test.go
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>
+---
+ client/firewall/uspfilter/filter_routeacl_test.go |  2 +-
+ client/iface/bind/ice_bind_test.go                | 12 ++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/client/firewall/uspfilter/filter_routeacl_test.go b/client/firewall/uspfilter/filter_routeacl_test.go
+index 68572a01c..4d66db934 100644
+--- a/client/firewall/uspfilter/filter_routeacl_test.go
++++ b/client/firewall/uspfilter/filter_routeacl_test.go
+@@ -8,7 +8,7 @@ import (
+ 	"github.com/google/gopacket/layers"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	fw "github.com/netbirdio/netbird/client/firewall/manager"
+ 	"github.com/netbirdio/netbird/client/iface"
+diff --git a/client/iface/bind/ice_bind_test.go b/client/iface/bind/ice_bind_test.go
+index 1fdd955c9..9fe45d683 100644
+--- a/client/iface/bind/ice_bind_test.go
++++ b/client/iface/bind/ice_bind_test.go
+@@ -27,8 +27,8 @@ func TestICEBind_CreatesReceiverForBothIPv4AndIPv6(t *testing.T) {
+ 	rc := receiverCreator{iceBind}
+ 	pool := createMsgPool()
+ 
+-	// Simulate wireguard-go calling CreateReceiverFn for IPv4
+-	ipv4RecvFn := rc.CreateReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, pool)
++	// Simulate wireguard-go calling CreateIPv4ReceiverFn for IPv4
++	ipv4RecvFn := rc.CreateIPv4ReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, pool)
+ 	require.NotNil(t, ipv4RecvFn)
+ 
+ 	iceBind.muUDPMux.Lock()
+@@ -37,8 +37,8 @@ func TestICEBind_CreatesReceiverForBothIPv4AndIPv6(t *testing.T) {
+ 	assert.NotNil(t, iceBind.udpMux, "mux should be created after first connection")
+ 	iceBind.muUDPMux.Unlock()
+ 
+-	// Simulate wireguard-go calling CreateReceiverFn for IPv6
+-	ipv6RecvFn := rc.CreateReceiverFn(ipv6.NewPacketConn(ipv6Conn), ipv6Conn, false, pool)
++	// Simulate wireguard-go calling CreateIPv4ReceiverFn for IPv6
++	ipv6RecvFn := rc.CreateIPv4ReceiverFn(nil, ipv6Conn, false, pool)
+ 	require.NotNil(t, ipv6RecvFn)
+ 
+ 	iceBind.muUDPMux.Lock()
+@@ -60,7 +60,7 @@ func TestICEBind_WorksWithIPv4Only(t *testing.T) {
+ 	defer ipv4Conn.Close()
+ 
+ 	rc := receiverCreator{iceBind}
+-	recvFn := rc.CreateReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, createMsgPool())
++	recvFn := rc.CreateIPv4ReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, createMsgPool())
+ 	require.NotNil(t, recvFn)
+ 
+ 	iceBind.muUDPMux.Lock()
+@@ -84,7 +84,7 @@ func TestICEBind_WorksWithIPv6Only(t *testing.T) {
+ 	defer ipv6Conn.Close()
+ 
+ 	rc := receiverCreator{iceBind}
+-	recvFn := rc.CreateReceiverFn(ipv6.NewPacketConn(ipv6Conn), ipv6Conn, false, createMsgPool())
++	recvFn := rc.CreateIPv4ReceiverFn(nil, ipv6Conn, false, createMsgPool())
+ 	require.NotNil(t, recvFn)
+ 
+ 	iceBind.muUDPMux.Lock()
+-- 
+2.53.0
+

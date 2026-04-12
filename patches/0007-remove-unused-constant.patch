@@ -1,0 +1,40 @@
+From 32e021187612f3743d6993455ac910855fa773a7 Mon Sep 17 00:00:00 2001
+From: spikeyspik <24636111+spikeyspik@users.noreply.github.com>
+Date: Mon, 27 Oct 2025 12:07:49 +0300
+Subject: [PATCH 07/11] remove unused constant
+
+---
+ client/iface/device/kernel_module_linux.go | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/client/iface/device/kernel_module_linux.go b/client/iface/device/kernel_module_linux.go
+index 71df08aba..95ac11501 100644
+--- a/client/iface/device/kernel_module_linux.go
++++ b/client/iface/device/kernel_module_linux.go
+@@ -28,15 +28,14 @@ import (
+ type status int
+ 
+ const (
+-	unknown                      status = 1
+-	unloaded                     status = 2
+-	unloading                    status = 3
+-	loading                      status = 4
+-	live                         status = 5
+-	inuse                        status = 6
+-	defaultModuleDir                    = "/lib/modules"
+-	envDisableWireGuardKernel           = "NB_WG_KERNEL_DISABLED"
+-	envUseAmneziaWireGuardKernel        = "NB_WG_KERNEL_USE_AMNEZIAWG"
++	unknown                   status = 1
++	unloaded                  status = 2
++	unloading                 status = 3
++	loading                   status = 4
++	live                      status = 5
++	inuse                     status = 6
++	defaultModuleDir                 = "/lib/modules"
++	envDisableWireGuardKernel        = "NB_WG_KERNEL_DISABLED"
+ )
+ 
+ type module struct {
+-- 
+2.53.0
+

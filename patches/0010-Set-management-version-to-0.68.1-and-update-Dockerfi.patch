@@ -1,0 +1,27 @@
+From 78b69cc3f63995ab0823f2db4f8b73e333535952 Mon Sep 17 00:00:00 2001
+From: LegionGames Dev <git@legiongames.ru>
+Date: Fri, 10 Apr 2026 13:51:47 +0300
+Subject: [PATCH 10/11] Set management version to 0.68.1 and update Dockerfile
+ ldflags
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>
+---
+ Dockerfile.mgmt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Dockerfile.mgmt b/Dockerfile.mgmt
+index c12c72318..377cd7a41 100644
+--- a/Dockerfile.mgmt
++++ b/Dockerfile.mgmt
+@@ -8,7 +8,7 @@ RUN go mod download
+ 
+ COPY . .
+ 
+-RUN CGO_ENABLED=1 GOOS=linux go build -o /out/netbird-mgmt ./management/main.go
++RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X github.com/netbirdio/netbird/version.version=0.68.1" -o /out/netbird-mgmt ./management/main.go
+ 
+ FROM alpine:3.21
+ RUN apk add --no-cache ca-certificates
+-- 
+2.53.0
+
