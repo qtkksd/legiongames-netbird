@@ -17,14 +17,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout our fork
+      - name: Checkout amneziawg branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: amneziawg
           fetch-depth: 0
 
-      - name: Add upstream remote
-        run: git remote add upstream https://github.com/netbirdio/netbird.git && git fetch upstream main
+      - name: Disable auto co-author
+        run: git config --global trailer.sign false
+
+      - name: Add upstream remote and reset to latest
+        run: |
+          git remote add upstream https://github.com/netbirdio/netbird.git
+          git fetch upstream main
+          git reset --hard upstream/main
 
       - name: Get upstream commit info
         id: upstream
@@ -35,30 +41,31 @@ jobs:
       - name: Create sync branch
         run: git checkout -b sync-amneziawg-${{ steps.upstream.outputs.date }} upstream/main
 
-      - name: Disable auto co-author
-        run: git config --global trailer.sign false
-
       - name: Apply patches
         id: apply
         run: |
           mkdir -p /tmp/rejected
+          FAIL=no
           for patch in patches/*.patch; do
+            if [ ! -f "$patch" ]; then continue; fi
             echo Applying: $patch
             if ! git apply --check $patch 2>/dev/null; then
               echo CONFLICT: $patch
               git apply --reject $patch 2>/dev/null || true
-              cp *.rej /tmp/rejected/ 2>/dev/null || true
-              echo failed=yes >> $GITHUB_OUTPUT
-              exit 0
+              find . -name "*.rej" -exec cp {} /tmp/rejected/ \; 2>/dev/null || true
+              FAIL=yes
+              break
             fi
             git apply $patch
-            git commit -m Apply patch
+            git commit -m "Apply patch
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           done
-          echo failed=no >> $GITHUB_OUTPUT
+          echo failed=$FAIL >> $GITHUB_OUTPUT
 
       - name: Update go.mod
         if: steps.apply.outputs.failed == 'no'
-        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am go mod tidy)
+        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy')
 
       - name: Setup Go
         if: steps.apply.outputs.failed == 'no'
@@ -87,7 +94,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const files = fs.readdirSync('/tmp/rejected');
+            const path = require('path');
+            const files = [];
+            function walk(dir) { for (const f of fs.readdirSync(dir, {withFileTypes:true})) { const full = path.join(dir,f.name); if (f.isDirectory()) walk(full); else files.push(full); } }
+            walk('/tmp/rejected');
             let body = '## Upstream Sync Failed\n\n### Conflicts in:\n';
             for (const f of files) { body += '- ' + f + '\n'; }
             github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync failed', body });
