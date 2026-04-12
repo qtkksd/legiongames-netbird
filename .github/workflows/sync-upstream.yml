@@ -49,7 +49,6 @@ jobs:
             git apply "$patch"
             git commit -m "Apply: $(basename $patch)
 
-Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           done
           echo "failed=no" >> $GITHUB_OUTPUT
 
