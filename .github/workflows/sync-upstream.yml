@@ -23,9 +23,6 @@ jobs:
           ref: amneziawg
           fetch-depth: 0
 
-      - name: Disable auto co-author
-        run: git config --global trailer.sign false
-
       - name: Add upstream remote and reset to latest
         run: |
           git remote add upstream https://github.com/netbirdio/netbird.git
@@ -47,24 +44,25 @@ jobs:
           mkdir -p /tmp/rejected
           FAIL=no
           for patch in patches/*.patch; do
-            if [ ! -f "$patch" ]; then continue; fi
+            if [ ! -f $patch ]; then continue; fi
             echo Applying: $patch
             if ! git apply --check $patch 2>/dev/null; then
               echo CONFLICT: $patch
               git apply --reject $patch 2>/dev/null || true
-              find . -name "*.rej" -exec cp {} /tmp/rejected/ \; 2>/dev/null || true
+              find . -name *.rej -exec cp {} /tmp/rejected/ \; 2>/dev/null || true
               FAIL=yes
               break
             fi
             git apply $patch
-            git commit -m "Apply patch
-
+            git commit -m Apply patch
           done
           echo failed=$FAIL >> $GITHUB_OUTPUT
 
       - name: Update go.mod
         if: steps.apply.outputs.failed == 'no'
-        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy')
+        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>')
 
       - name: Setup Go
         if: steps.apply.outputs.failed == 'no'
@@ -86,24 +84,3 @@ jobs:
           gh pr create --base amneziawg --head sync-amneziawg-${{ steps.upstream.outputs.date }} --title Sync-upstream --body Auto sync from netbirdio/netbird upstream.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Open issue on patch conflict
-        if: steps.apply.outputs.failed == 'yes'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const files = [];
-            function walk(dir) { for (const f of fs.readdirSync(dir, {withFileTypes:true})) { const full = path.join(dir,f.name); if (f.isDirectory()) walk(full); else files.push(full); } }
-            walk('/tmp/rejected');
-            let body = '## Upstream Sync Failed\n\n### Conflicts in:\n';
-            for (const f of files) { body += '- ' + f + '\n'; }
-            github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync failed', body });
-
-      - name: Open issue on build failure
-        if: failure() && steps.apply.outputs.failed == 'no'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync build failed', body: 'All patches applied but build failed.' });
