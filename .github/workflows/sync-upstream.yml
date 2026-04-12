@@ -62,8 +62,6 @@ jobs:
         if: steps.apply.outputs.failed == 'no'
         run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy
 
-Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>')
-
       - name: Setup Go
         if: steps.apply.outputs.failed == 'no'
         uses: actions/setup-go@v5
