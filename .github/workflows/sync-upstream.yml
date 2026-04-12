@@ -94,3 +94,4 @@ jobs:
         with:
           script: |
             github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync build failed', body: 'All patches applied but build failed.' });
+# sync workflow v2
