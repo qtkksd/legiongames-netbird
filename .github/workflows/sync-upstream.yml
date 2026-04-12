@@ -2,8 +2,8 @@ name: Sync Upstream
 
 on:
   schedule:
-    - cron: '0 3 * * 1'  # Weekly on Monday at 03:00 UTC
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,7 +21,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add upstream remote
         run: |
@@ -31,8 +30,7 @@ jobs:
       - name: Get upstream commit info
         id: upstream
         run: |
-          UPSTREAM_SHA=$(git rev-parse upstream/main)
-          echo "sha=$UPSTREAM_SHA" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse upstream/main)" >> $GITHUB_OUTPUT
           echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
       - name: Create sync branch
@@ -41,7 +39,6 @@ jobs:
 
       - name: Apply patches
         id: apply
-        continue-on-error: true
         run: |
           mkdir -p /tmp/rejected
           FAIL=0
@@ -65,7 +62,7 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
         if: steps.apply.outputs.success == '0'
         run: |
           go mod tidy
-          git diff --quiet go.mod go.sum || git commit -am "go mod tidy after upstream sync"
+          git diff --quiet go.mod go.sum || git commit -am "go mod tidy"
 
       - name: Setup Go
         if: steps.apply.outputs.success == '0'
@@ -82,9 +79,8 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build ./client/main.go
           echo "Building Linux arm64 client..."
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./client/main.go
-          echo "Build verification complete"
 
-      - name: Push sync branch and open PR
+      - name: Push and open PR
         if: steps.apply.outputs.success == '0'
         run: |
           git push origin sync-amneziawg-${{ steps.upstream.outputs.date }} --force
@@ -92,23 +88,25 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
             --base amneziawg \
             --head sync-amneziawg-${{ steps.upstream.outputs.date }} \
             --title "Sync upstream ($(date +%Y-%m-%d))" \
-            --body "## Upstream Sync\n\n- Upstream: netbirdio/netbird@${{ steps.upstream.outputs.sha }}\n- All patches applied successfully\n- Build verification passed\n\n### Changes\n- Auto-generated sync PR\n- Review changes before merging" \
-            --label "upstream-sync" || true
+            --body "Auto sync from netbirdio/netbird upstream. All patches applied and builds passed."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Open issue on failure
+      - name: Open issue on patch conflict
         if: steps.apply.outputs.success == '1'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const rejected = fs.readdirSync('/tmp/rejected').join('\\n');
+            const files = fs.readdirSync('/tmp/rejected');
+            let body = "## Upstream Sync Failed - ${{ steps.upstream.outputs.date }}\n\n**Upstream:** netbirdio/netbird@${{ steps.upstream.outputs.sha }}\n\n### Conflicts in:\n";
+            for (const f of files) { body += "- " + f + "\n"; }
+            body += "\nResolve conflicts and update patches.";
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Upstream sync failed - ${{ steps.upstream.outputs.date }}',
-              body: `## Upstream Sync Failed\n\n**Upstream:** netbirdio/netbird@${{ steps.upstream.outputs.sha }}\n\n### Rejected patches\n\`\`\`\n${rejected}\n\`\`\`\n\n### Next steps\n1. Checkout sync-amneziawg-${{ steps.upstream.outputs.date }} branch\n2. Resolve conflicts manually\n3. Update the failing patch: \`git diff upstream/main -- <file> > patches/<name>.patch\`\n4. Push and re-run this workflow`
+              title: "Upstream sync failed - ${{ steps.upstream.outputs.date }}",
+              body: body
             });
 
       - name: Open issue on build failure
@@ -119,6 +117,6 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Upstream sync build failed - ${{ steps.upstream.outputs.date }}',
-              body: `## Build Failed After Upstream Sync\n\n**Upstream:** netbirdio/netbird@${{ steps.upstream.outputs.sha }}\n\nAll patches applied but build failed. Check workflow logs for details.\n\nThis likely means upstream changed APIs our AmneziaWG integration depends on.`
+              title: "Upstream sync build failed - ${{ steps.upstream.outputs.date }}",
+              body: "All patches applied but build failed. Check workflow logs for details."
             });
