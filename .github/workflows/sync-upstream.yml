@@ -40,23 +40,24 @@ jobs:
         run: |
           mkdir -p /tmp/rejected
           for patch in patches/*.patch; do
-            echo "Applying: $patch"
+            echo Applying: $patch
             if ! git apply --check "$patch" 2>/dev/null; then
-              echo "CONFLICT: $patch"
+              echo CONFLICT: $patch
               git apply --reject "$patch" 2>/dev/null || true
               cp *.rej /tmp/rejected/ 2>/dev/null || true
-              echo "failed=yes" >> $GITHUB_OUTPUT
+              echo failed=yes >> $GITHUB_OUTPUT
               exit 0
             fi
             git apply "$patch"
             git commit -m "Apply: $(basename $patch)
 
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           done
-          echo "failed=no" >> $GITHUB_OUTPUT
+          echo failed=no >> $GITHUB_OUTPUT
 
       - name: Update go.mod
         if: ${{ steps.apply.outputs.failed == 'no' }}
-        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy')
+        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am go mod tidy)
 
       - name: Setup Go
         if: ${{ steps.apply.outputs.failed == 'no' }}
@@ -75,7 +76,7 @@ jobs:
         if: ${{ steps.apply.outputs.failed == 'no' }}
         run: |
           git push origin sync-amneziawg-${{ steps.upstream.outputs.date }} --force
-          gh pr create --base amneziawg --head sync-amneziawg-${{ steps.upstream.outputs.date }} --title "Sync upstream" --body "Auto sync from netbirdio/netbird upstream."
+          gh pr create --base amneziawg --head sync-amneziawg-${{ steps.upstream.outputs.date }} --title Sync upstream --body Auto sync from netbirdio/netbird upstream.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -96,4 +97,3 @@ jobs:
         with:
           script: |
             github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync build failed', body: 'All patches applied but build failed.' });
-# sync workflow v2
