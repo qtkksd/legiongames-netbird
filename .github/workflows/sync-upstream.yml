@@ -23,6 +23,18 @@ jobs:
           ref: amneziawg
           fetch-depth: 0
 
+      - name: Check for new upstream commits
+        run: |
+          git remote add upstream https://github.com/netbirdio/netbird.git
+          git fetch upstream main
+          NEW=$(git log origin/amneziawg..upstream/main --oneline)
+          if [ -z "$NEW" ]; then
+            echo "No new upstream commits. Exiting."
+            exit 0
+          fi
+          echo "Found new commits:"
+          echo "$NEW"
+
       - name: Add upstream remote and reset to latest
         run: |
           git remote add upstream https://github.com/netbirdio/netbird.git
