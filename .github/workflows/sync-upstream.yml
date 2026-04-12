@@ -54,24 +54,24 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           echo "failed=no" >> $GITHUB_OUTPUT
 
       - name: Update go.mod
-        if: steps.apply.outputs.failed == 'no'
+        if: ${{ steps.apply.outputs.failed == 'no' }}
         run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am 'go mod tidy')
 
       - name: Setup Go
-        if: steps.apply.outputs.failed == 'no'
+        if: ${{ steps.apply.outputs.failed == 'no' }}
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
 
       - name: Build verification
-        if: steps.apply.outputs.failed == 'no'
+        if: ${{ steps.apply.outputs.failed == 'no' }}
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./client/main.go
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build ./client/main.go
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./client/main.go
 
       - name: Push and open PR
-        if: steps.apply.outputs.failed == 'no'
+        if: ${{ steps.apply.outputs.failed == 'no' }}
         run: |
           git push origin sync-amneziawg-${{ steps.upstream.outputs.date }} --force
           gh pr create --base amneziawg --head sync-amneziawg-${{ steps.upstream.outputs.date }} --title "Sync upstream" --body "Auto sync from netbirdio/netbird upstream."
@@ -79,7 +79,7 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Open issue on patch conflict
-        if: steps.apply.outputs.failed == 'yes'
+        if: ${{ steps.apply.outputs.failed == 'yes' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -90,7 +90,7 @@ Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
             github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Upstream sync failed', body });
 
       - name: Open issue on build failure
-        if: failure() && steps.apply.outputs.failed == 'no'
+        if: ${{ failure() && steps.apply.outputs.failed == 'no' }}
         uses: actions/github-script@v7
         with:
           script: |
