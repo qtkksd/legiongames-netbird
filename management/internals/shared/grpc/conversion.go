@@ -14,6 +14,7 @@ import (
 	nbdns "github.com/netbirdio/netbird/dns"
 	"github.com/netbirdio/netbird/management/internals/controllers/network_map/controller/cache"
 	nbconfig "github.com/netbirdio/netbird/management/internals/server/config"
+	"github.com/netbirdio/netbird/management/server/amneziawg"
 	nbpeer "github.com/netbirdio/netbird/management/server/peer"
 	"github.com/netbirdio/netbird/management/server/posture"
 	"github.com/netbirdio/netbird/management/server/types"
@@ -100,6 +101,24 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
 		sshConfig.JwtConfig = buildJWTConfig(httpConfig, deviceFlowConfig)
 	}
 
+	// Build AmneziaConfig from the Store populated by environment variables
+	amneziaCfg := &proto.AmneziaConfig{
+		Jc:   &amneziawg.Store.Jc,
+		Jmin: &amneziawg.Store.Jmin,
+		Jmax: &amneziawg.Store.Jmax,
+		S1:   &amneziawg.Store.S1,
+		S2:   &amneziawg.Store.S2,
+		H1:   &amneziawg.Store.H1,
+		H2:   &amneziawg.Store.H2,
+		H3:   &amneziawg.Store.H3,
+		H4:   &amneziawg.Store.H4,
+		I1:   &amneziawg.Store.I1,
+		I2:   &amneziawg.Store.I2,
+		I3:   &amneziawg.Store.I3,
+		I4:   &amneziawg.Store.I4,
+		I5:   &amneziawg.Store.I5,
+	}
+
 	return &proto.PeerConfig{
 		Address:                         fmt.Sprintf("%s/%d", peer.IP.String(), netmask),
 		SshConfig:                       sshConfig,
@@ -110,7 +129,7 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
 			Version:      settings.AutoUpdateVersion,
 			AlwaysUpdate: settings.AutoUpdateAlways,
 		},
-		AmneziaConfig: &proto.AmneziaConfig{},
+		AmneziaConfig: amneziaCfg,
 	}
 }
 
