@@ -1,0 +1,64 @@
+From 614559e859b02937e0c4aa73da834d7c62891205 Mon Sep 17 00:00:00 2001
+From: LegionGames Dev <git@legiongames.ru>
+Date: Mon, 13 Apr 2026 22:02:24 +0300
+Subject: [PATCH] fix: populate AmneziaConfig from env Store in management
+ server response
+
+The management server was sending empty AmneziaConfig to all clients.
+Now reads values from amneziawg.Store (populated by NETBIRD_AMNEZIA_* env vars)
+and distributes obfuscation params to all connected clients.
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>
+---
+ .../internals/shared/grpc/conversion.go       | 21 ++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/management/internals/shared/grpc/conversion.go b/management/internals/shared/grpc/conversion.go
+index 538d84d7e..2d6ae4a4d 100644
+--- a/management/internals/shared/grpc/conversion.go
++++ b/management/internals/shared/grpc/conversion.go
+@@ -14,6 +14,7 @@ import (
+ 	nbdns "github.com/netbirdio/netbird/dns"
+ 	"github.com/netbirdio/netbird/management/internals/controllers/network_map/controller/cache"
+ 	nbconfig "github.com/netbirdio/netbird/management/internals/server/config"
++	"github.com/netbirdio/netbird/management/server/amneziawg"
+ 	nbpeer "github.com/netbirdio/netbird/management/server/peer"
+ 	"github.com/netbirdio/netbird/management/server/posture"
+ 	"github.com/netbirdio/netbird/management/server/types"
+@@ -100,6 +101,24 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
+ 		sshConfig.JwtConfig = buildJWTConfig(httpConfig, deviceFlowConfig)
+ 	}
+ 
++	// Build AmneziaConfig from the Store populated by environment variables
++	amneziaCfg := &proto.AmneziaConfig{
++		Jc:   &amneziawg.Store.Jc,
++		Jmin: &amneziawg.Store.Jmin,
++		Jmax: &amneziawg.Store.Jmax,
++		S1:   &amneziawg.Store.S1,
++		S2:   &amneziawg.Store.S2,
++		H1:   &amneziawg.Store.H1,
++		H2:   &amneziawg.Store.H2,
++		H3:   &amneziawg.Store.H3,
++		H4:   &amneziawg.Store.H4,
++		I1:   &amneziawg.Store.I1,
++		I2:   &amneziawg.Store.I2,
++		I3:   &amneziawg.Store.I3,
++		I4:   &amneziawg.Store.I4,
++		I5:   &amneziawg.Store.I5,
++	}
++
+ 	return &proto.PeerConfig{
+ 		Address:                         fmt.Sprintf("%s/%d", peer.IP.String(), netmask),
+ 		SshConfig:                       sshConfig,
+@@ -110,7 +129,7 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
+ 			Version:      settings.AutoUpdateVersion,
+ 			AlwaysUpdate: settings.AutoUpdateAlways,
+ 		},
+-		AmneziaConfig: &proto.AmneziaConfig{},
++		AmneziaConfig: amneziaCfg,
+ 	}
+ }
+ 
+-- 
+2.53.0
+

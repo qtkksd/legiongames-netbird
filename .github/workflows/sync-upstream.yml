@@ -2,18 +2,55 @@ name: Sync Upstream
 
 on:
   schedule:
-     - cron: "0 3 * * 1"
+    - cron: "0 3 * * 1"
   workflow_dispatch:
-  push:
-    branches: [ amneziawg ]
 
 permissions:
   contents: write
-  pull-requests: write
-  issues: write
+
+env:
+  GITHUB_API: ${{ secrets.GITHUB_API }}
 
 jobs:
-  sync:
+  check-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_commits: ${{ steps.check.outputs.has_new_commits }}
+      sync_date: ${{ steps.check.outputs.sync_date }}
+      commit_summary: ${{ steps.check.outputs.commit_summary }}
+    steps:
+      - name: Checkout amneziawg branch
+        uses: actions/checkout@v4
+        with:
+          ref: amneziawg
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_API }}
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          git remote add upstream https://github.com/netbirdio/netbird.git
+          git fetch upstream main
+          NEW=$(git log origin/amneziawg..upstream/main --oneline)
+          if [ -z "$NEW" ]; then
+            echo "No new upstream commits. Workflow will stop here."
+            echo "has_new_commits=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "has_new_commits=true" >> $GITHUB_OUTPUT
+          echo "sync_date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          COMMIT_COUNT=$(echo "$NEW" | wc -l)
+          COMMIT_LIST=$(echo "$NEW" | head -20)
+          echo "Found $COMMIT_COUNT new commits:"
+          echo "$COMMIT_LIST"
+          COMMIT_ESCAPED=$(echo "$NEW" | sed 's/"/\\"/g' | head -20 | awk '{printf "- %s\\n", $0}')
+          echo "commit_summary<<SUMMARY" >> $GITHUB_OUTPUT
+          echo "$COMMIT_ESCAPED" >> $GITHUB_OUTPUT
+          echo "SUMMARY" >> $GITHUB_OUTPUT
+
+  sync-and-verify:
+    needs: check-upstream
+    if: needs.check-upstream.outputs.has_new_commits == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -22,57 +59,45 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_API }}
 
-      - name: Check for new upstream commits
+      - name: Set up Git
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/netbirdio/netbird.git
           git fetch upstream main
-          NEW=$(git log origin/amneziawg..upstream/main --oneline)
-          if [ -z "$NEW" ]; then
-            echo "No new upstream commits. Exiting."
-            exit 0
-          fi
-          echo "Found new commits:"
-          echo "$NEW"
-
-      - name: Get upstream commit info
-        id: upstream
-        run: |
-          echo sha=$(git rev-parse upstream/main) >> $GITHUB_OUTPUT
-          echo date=$(date +%Y-%m-%d) >> $GITHUB_OUTPUT
 
       - name: Create sync branch
-        run: git checkout -b sync-amneziawg-${{ steps.upstream.outputs.date }} upstream/main
+        run: git checkout -b sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }} upstream/main
 
       - name: Apply patches
         id: apply
         run: |
-          mkdir -p /tmp/rejected
           FAIL=no
           for patch in patches/*.patch; do
-            if [ ! -f $patch ]; then continue; fi
-            echo Applying: $patch
-            if ! git apply --check $patch 2>/dev/null; then
-              echo CONFLICT: $patch
-              git apply --reject $patch 2>/dev/null || true
-              find . -name *.rej -exec cp {} /tmp/rejected/ \; 2>/dev/null || true
+            if [ ! -f "$patch" ]; then continue; fi
+            echo "Applying: $patch"
+            if ! git apply --check "$patch" 2>/dev/null; then
+              echo "CONFLICT: $patch"
+              git apply --reject "$patch" 2>/dev/null || true
               FAIL=yes
               break
             fi
-            git apply $patch
-            git commit -m Apply patch
+            git apply "$patch"
+            git commit -m "Apply: $(basename $patch)"
           done
-          echo failed=$FAIL >> $GITHUB_OUTPUT
-
-      - name: Update go.mod
-        if: steps.apply.outputs.failed == 'no'
-        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am go mod tidy)
+          echo "failed=$FAIL" >> $GITHUB_OUTPUT
 
       - name: Setup Go
         if: steps.apply.outputs.failed == 'no'
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
+
+      - name: Run go mod tidy
+        if: steps.apply.outputs.failed == 'no'
+        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am "go mod tidy")
 
       - name: Build verification
         if: steps.apply.outputs.failed == 'no'
@@ -81,10 +106,41 @@ jobs:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build ./client/main.go
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./client/main.go
 
-      - name: Push and open PR
+      - name: Push sync branch
         if: steps.apply.outputs.failed == 'no'
         run: |
-          git push origin sync-amneziawg-${{ steps.upstream.outputs.date }} --force
-          gh pr create --base amneziawg --head sync-amneziawg-${{ steps.upstream.outputs.date }} --title "Sync upstream" --body "Auto sync from netbirdio/netbird upstream."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push origin sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }} --force
+
+  create-pr:
+    needs: [check-upstream, sync-and-verify]
+    if: needs.sync-and-verify.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout amneziawg branch
+        uses: actions/checkout@v4
+        with:
+          ref: amneziawg
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_API }}
+
+      - name: Install GitHub CLI
+        run: |
+          gh auth login --with-token <<< "$GITHUB_API"
+
+      - name: Create or update PR
+        run: |
+          BRANCH="sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }}"
+          COMMIT_SUMMARY=${{ needs.check-upstream.outputs.commit_summary }}
+
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already exists for $BRANCH, skipping creation"
+          else
+            gh pr create \\
+              --base amneziawg \\
+              --head "$BRANCH" \\
+              --title "Sync upstream - ${{ needs.check-upstream.outputs.sync_date }}" \\
+              --body "Auto sync from netbirdio/netbird upstream.\\n\\n## New upstream commits:\\n\\n$COMMIT_SUMMARY"
+          fi
