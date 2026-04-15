@@ -1,5 +1,5 @@
 package version
 
 const (
-	downloadURL = "https://app.netbird.io/install"
+	downloadURL = "https://pkgs.legiongames.ru/linux/amd64/netbird.deb"
 )
