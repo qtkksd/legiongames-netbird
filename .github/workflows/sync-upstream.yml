@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 env:
-  GITHUB_API: ${{ secrets.GITHUB_API }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   check-upstream:
@@ -26,7 +26,7 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_API }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check for new upstream commits
         id: check
@@ -61,7 +61,7 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_API }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Git
         run: |
@@ -124,11 +124,11 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_API }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install GitHub CLI
         run: |
-          gh auth login --with-token <<< "$GITHUB_API"
+          gh auth login --with-token <<< "$GITHUB_TOKEN"
 
       - name: Create or update PR
         run: |
