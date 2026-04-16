@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
