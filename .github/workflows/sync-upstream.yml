@@ -134,7 +134,6 @@ jobs:
       - name: Create or update PR
         run: |
           BRANCH="sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }}"
-          COMMIT_SUMMARY=${{ needs.check-upstream.outputs.commit_summary }}
 
           EXISTING=$(gh pr list  --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
 
