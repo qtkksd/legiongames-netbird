@@ -140,9 +140,5 @@ jobs:
           if [ -n "$EXISTING" ]; then
             echo "PR #$EXISTING already exists for $BRANCH, skipping creation"
           else
-            gh pr create  \\
-              --base amneziawg \\
-              --head "$BRANCH" \\
-              --title "Sync upstream - ${{ needs.check-upstream.outputs.sync_date }}" \\
-              --body "Auto sync from netbirdio/netbird upstream.\\n\\n## New upstream commits:\\n\\n$COMMIT_SUMMARY"
+            gh pr create --base amneziawg --head "$BRANCH" --title "Sync upstream - ${{ needs.check-upstream.outputs.sync_date }}" --body "Auto sync from netbirdio/netbird upstream.\\n\\n## New upstream commits:\\n\\n$COMMIT_SUMMARY"
           fi
