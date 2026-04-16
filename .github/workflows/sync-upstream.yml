@@ -130,19 +130,18 @@ jobs:
 
       - name: Install GitHub CLI
         run: |
-          gh auth login --with-token <<< "$GITHUB_TOKEN"
 
       - name: Create or update PR
         run: |
           BRANCH="sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }}"
           COMMIT_SUMMARY=${{ needs.check-upstream.outputs.commit_summary }}
 
-          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          EXISTING=$(gh pr list -h ${{ secrets.PAT_TOKEN }}@github.com:qtkksd --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
 
           if [ -n "$EXISTING" ]; then
             echo "PR #$EXISTING already exists for $BRANCH, skipping creation"
           else
-            gh pr create \\
+            gh pr create -h ${{ secrets.PAT_TOKEN }}@github.com:qtkksd \\
               --base amneziawg \\
               --head "$BRANCH" \\
               --title "Sync upstream - ${{ needs.check-upstream.outputs.sync_date }}" \\
