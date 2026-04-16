@@ -9,10 +9,9 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
 jobs:
   check-upstream:
@@ -27,12 +26,13 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Check for new upstream commits
         id: check
         run: |
           git remote add upstream https://github.com/netbirdio/netbird.git
+          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/qtkksd/netbird-amneziawg.git
           git fetch upstream main
           NEW=$(git log origin/amneziawg..upstream/main --oneline)
           if [ -z "$NEW" ]; then
@@ -62,13 +62,14 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Set up Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/netbirdio/netbird.git
+          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/qtkksd/netbird-amneziawg.git
           git fetch upstream main
 
       - name: Create sync branch
@@ -125,7 +126,7 @@ jobs:
         with:
           ref: amneziawg
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Install GitHub CLI
         run: |
