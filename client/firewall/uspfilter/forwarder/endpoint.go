@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	wgdevice "golang.zx2c4.com/wireguard/device"
+	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"

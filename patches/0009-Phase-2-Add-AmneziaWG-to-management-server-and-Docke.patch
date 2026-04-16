@@ -1,0 +1,279 @@
+From f078caa301422bfacb736583f76e7cc382875abc Mon Sep 17 00:00:00 2001
+From: LegionGames Dev <git@legiongames.ru>
+Date: Fri, 10 Apr 2026 13:37:09 +0300
+Subject: [PATCH 09/11] Phase 2: Add AmneziaWG to management server and Docker
+
+- Add AmneziaConfig to PeerConfig in grpc conversion.go
+- Copy amneziawg package to new management tree
+- Create Dockerfile.mgmt for custom management image
+- Update docker-compose.yml: build from source, use management subcommand
+- Privacy: --disable-anonymous-metrics, --disable-geolite-update, NB_DISABLE_GEOLOCATION
+- Management container running and healthy
+
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>
+---
+ Dockerfile.mgmt                               |  20 ++
+ .../server/amneziawg/amneziawg_env.go         | 211 ++++++++++++++++++
+ .../internals/shared/grpc/conversion.go       |   1 +
+ 3 files changed, 232 insertions(+)
+ create mode 100644 Dockerfile.mgmt
+ create mode 100644 management/internals/server/amneziawg/amneziawg_env.go
+
+diff --git a/Dockerfile.mgmt b/Dockerfile.mgmt
+new file mode 100644
+index 000000000..c12c72318
+--- /dev/null
++++ b/Dockerfile.mgmt
+@@ -0,0 +1,20 @@
++FROM golang:1.26-alpine AS builder
++
++RUN apk add --no-cache git gcc musl-dev protobuf-dev protoc
++
++WORKDIR /src
++COPY go.mod go.sum ./
++RUN go mod download
++
++COPY . .
++
++RUN CGO_ENABLED=1 GOOS=linux go build -o /out/netbird-mgmt ./management/main.go
++
++FROM alpine:3.21
++RUN apk add --no-cache ca-certificates
++
++COPY --from=builder /out/netbird-mgmt /usr/local/bin/netbird-mgmt
++
++EXPOSE 80
++
++ENTRYPOINT ["netbird-mgmt"]
+diff --git a/management/internals/server/amneziawg/amneziawg_env.go b/management/internals/server/amneziawg/amneziawg_env.go
+new file mode 100644
+index 000000000..15320d0ea
+--- /dev/null
++++ b/management/internals/server/amneziawg/amneziawg_env.go
+@@ -0,0 +1,211 @@
++package amneziawg
++
++import (
++	"os"
++	"strconv"
++)
++
++const (
++	envAmneziaJc   = "NETBIRD_AMNEZIA_JC"
++	envAmneziaJmin = "NETBIRD_AMNEZIA_JMIN"
++	envAmneziaJmax = "NETBIRD_AMNEZIA_JMAX"
++	envAmneziaS1   = "NETBIRD_AMNEZIA_S1"
++	envAmneziaS2   = "NETBIRD_AMNEZIA_S2"
++	envAmneziaH1   = "NETBIRD_AMNEZIA_H1"
++	envAmneziaH2   = "NETBIRD_AMNEZIA_H2"
++	envAmneziaH3   = "NETBIRD_AMNEZIA_H3"
++	envAmneziaH4   = "NETBIRD_AMNEZIA_H4"
++	envAmneziaI1   = "NETBIRD_AMNEZIA_I1"
++	envAmneziaI2   = "NETBIRD_AMNEZIA_I2"
++	envAmneziaI3   = "NETBIRD_AMNEZIA_I3"
++	envAmneziaI4   = "NETBIRD_AMNEZIA_I4"
++	envAmneziaI5   = "NETBIRD_AMNEZIA_I5"
++)
++
++type StoreStruct struct {
++	Jc   int32
++	Jmin int32
++	Jmax int32
++	S1   int32
++	S2   int32
++	H1   uint32
++	H2   uint32
++	H3   uint32
++	H4   uint32
++	I1   string
++	I2   string
++	I3   string
++	I4   string
++	I5   string
++}
++
++var Store StoreStruct
++
++func init() {
++
++	Store = StoreStruct{
++		Jc:   getAmneziaWgJc(),
++		Jmin: getAmneziaWgJmin(),
++		Jmax: getAmneziaWgJmax(),
++		S1:   getAmneziaWgS1(),
++		S2:   getAmneziaWgS2(),
++		H1:   getAmneziaWgH1(),
++		H2:   getAmneziaWgH2(),
++		H3:   getAmneziaWgH3(),
++		H4:   getAmneziaWgH4(),
++		I1:   getAmneziaWgI1(),
++		I2:   getAmneziaWgI2(),
++		I3:   getAmneziaWgI3(),
++		I4:   getAmneziaWgI4(),
++		I5:   getAmneziaWgI5(),
++	}
++}
++
++func getAmneziaWgJc() int32 {
++
++	strval, ok := os.LookupEnv(envAmneziaJc)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseInt(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return int32(val)
++}
++func getAmneziaWgJmin() int32 {
++
++	strval, ok := os.LookupEnv(envAmneziaJmin)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseInt(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return int32(val)
++}
++func getAmneziaWgJmax() int32 {
++
++	strval, ok := os.LookupEnv(envAmneziaJmax)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseInt(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return int32(val)
++}
++func getAmneziaWgS1() int32 {
++
++	strval, ok := os.LookupEnv(envAmneziaS1)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseInt(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return int32(val)
++}
++func getAmneziaWgS2() int32 {
++
++	strval, ok := os.LookupEnv(envAmneziaS2)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseInt(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return int32(val)
++}
++func getAmneziaWgH1() uint32 {
++
++	strval, ok := os.LookupEnv(envAmneziaH1)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseUint(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return uint32(val)
++}
++func getAmneziaWgH2() uint32 {
++
++	strval, ok := os.LookupEnv(envAmneziaH2)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseUint(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return uint32(val)
++}
++func getAmneziaWgH3() uint32 {
++
++	strval, ok := os.LookupEnv(envAmneziaH3)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseUint(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return uint32(val)
++}
++func getAmneziaWgH4() uint32 {
++
++	strval, ok := os.LookupEnv(envAmneziaH4)
++	if !ok {
++		return 0
++	}
++	val, err := strconv.ParseUint(strval, 10, 32)
++	if err != nil {
++		return 0
++	}
++	return uint32(val)
++}
++func getAmneziaWgI1() string {
++
++	val, ok := os.LookupEnv(envAmneziaI1)
++	if !ok {
++		return ""
++	}
++	return val
++}
++func getAmneziaWgI2() string {
++
++	val, ok := os.LookupEnv(envAmneziaI2)
++	if !ok {
++		return ""
++	}
++	return val
++}
++func getAmneziaWgI3() string {
++
++	val, ok := os.LookupEnv(envAmneziaI3)
++	if !ok {
++		return ""
++	}
++	return val
++}
++func getAmneziaWgI4() string {
++
++	val, ok := os.LookupEnv(envAmneziaI4)
++	if !ok {
++		return ""
++	}
++	return val
++}
++func getAmneziaWgI5() string {
++
++	val, ok := os.LookupEnv(envAmneziaI5)
++	if !ok {
++		return ""
++	}
++	return val
++}
+diff --git a/management/internals/shared/grpc/conversion.go b/management/internals/shared/grpc/conversion.go
+index ef417d3cf..538d84d7e 100644
+--- a/management/internals/shared/grpc/conversion.go
++++ b/management/internals/shared/grpc/conversion.go
+@@ -110,6 +110,7 @@ func toPeerConfig(peer *nbpeer.Peer, network *types.Network, dnsName string, set
+ 			Version:      settings.AutoUpdateVersion,
+ 			AlwaysUpdate: settings.AutoUpdateAlways,
+ 		},
++		AmneziaConfig: &proto.AmneziaConfig{},
+ 	}
+ }
+ 
+-- 
+2.53.0
+

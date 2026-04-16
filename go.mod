@@ -4,6 +4,8 @@ go 1.25.5
 
 require (
 	cunicu.li/go-rosenpass v0.4.0
+	github.com/amnezia-vpn/amneziawg-go v0.2.13
+	github.com/amnezia-vpn/amneziawg-windows v0.0.0-00010101000000-000000000000
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/golang/protobuf v1.5.4
@@ -21,7 +23,6 @@ require (
 	golang.org/x/sys v0.42.0
 	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	golang.zx2c4.com/wireguard/windows v0.5.3
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -323,3 +324,7 @@ replace github.com/pion/ice/v4 => github.com/netbirdio/ice/v4 v4.0.0-20250908184
 replace github.com/libp2p/go-netroute => github.com/netbirdio/go-netroute v0.0.0-20240611143515-f59b0e1d3944
 
 replace github.com/dexidp/dex => github.com/netbirdio/dex v0.244.0
+
+replace github.com/amnezia-vpn/amneziawg-go => github.com/spikeyspik/amneziawg-go v0.0.0-20250708202045-31b712270230
+
+replace github.com/amnezia-vpn/amneziawg-windows => github.com/spikeyspik/amneziawg-windows v0.0.0-20250708202707-8cb3da4d3a61

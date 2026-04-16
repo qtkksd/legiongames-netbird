@@ -1,0 +1,207 @@
+From 6aade8bf749a1311e5ceb1a30bd975da5bc2c577 Mon Sep 17 00:00:00 2001
+From: spikeyspik <24636111+spikeyspik@users.noreply.github.com>
+Date: Sun, 26 Oct 2025 23:21:18 +0300
+Subject: [PATCH 06/11] fixes for mobile platforms + attempt to solve
+ complexity
+
+---
+ client/iface/configurer/usp.go        | 91 ++++++++++++++-------------
+ client/iface/device/device_android.go | 17 ++---
+ client/iface/device/device_ios.go     |  4 +-
+ client/iface/iface_new_android.go     |  4 +-
+ client/iface/iface_new_ios.go         |  2 +-
+ 5 files changed, 62 insertions(+), 56 deletions(-)
+
+diff --git a/client/iface/configurer/usp.go b/client/iface/configurer/usp.go
+index 0e24408f3..d7c2b7e77 100644
+--- a/client/iface/configurer/usp.go
++++ b/client/iface/configurer/usp.go
+@@ -410,49 +410,7 @@ func (c *WGUSPConfigurer) toWgUserspaceString(wgCfg wgtypes.Config) string {
+ 		// Write AmneziaWG settings only if config is not empty
+ 		// If nil or empty, acts as standard WireGuard
+ 		if !c.amneziaConfig.IsEmpty() {
+-
+-			if val := c.amneziaConfig.GetJc(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("jc=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetJmin(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("jmin=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetJmax(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("jmax=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetS1(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("s1=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetS2(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("s2=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetH1(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("h1=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetH2(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("h2=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetH3(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("h3=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetH4(); val > 0 {
+-				sb.WriteString(fmt.Sprintf("h4=%d\n", val))
+-			}
+-			if val := c.amneziaConfig.GetI1(); val != "" {
+-				sb.WriteString(fmt.Sprintf("i1=%s\n", val))
+-			}
+-			if val := c.amneziaConfig.GetI2(); val != "" {
+-				sb.WriteString(fmt.Sprintf("i2=%s\n", val))
+-			}
+-			if val := c.amneziaConfig.GetI3(); val != "" {
+-				sb.WriteString(fmt.Sprintf("i3=%s\n", val))
+-			}
+-			if val := c.amneziaConfig.GetI4(); val != "" {
+-				sb.WriteString(fmt.Sprintf("i4=%s\n", val))
+-			}
+-			if val := c.amneziaConfig.GetI5(); val != "" {
+-				sb.WriteString(fmt.Sprintf("i5=%s\n", val))
+-			}
++			writeAmneziaWgSettings(sb, c.amneziaConfig)
+ 		}
+ 	}
+ 
+@@ -500,6 +458,53 @@ func (c *WGUSPConfigurer) toWgUserspaceString(wgCfg wgtypes.Config) string {
+ 	return sb.String()
+ }
+ 
++func writeAmneziaWgSettings(sb strings.Builder, conf AmneziaConfig) {
++
++	if val := conf.GetJc(); val > 0 {
++		sb.WriteString(fmt.Sprintf("jc=%d\n", val))
++	}
++	if val := conf.GetJmin(); val > 0 {
++		sb.WriteString(fmt.Sprintf("jmin=%d\n", val))
++	}
++	if val := conf.GetJmax(); val > 0 {
++		sb.WriteString(fmt.Sprintf("jmax=%d\n", val))
++	}
++	if val := conf.GetS1(); val > 0 {
++		sb.WriteString(fmt.Sprintf("s1=%d\n", val))
++	}
++	if val := conf.GetS2(); val > 0 {
++		sb.WriteString(fmt.Sprintf("s2=%d\n", val))
++	}
++	if val := conf.GetH1(); val > 0 {
++		sb.WriteString(fmt.Sprintf("h1=%d\n", val))
++	}
++	if val := conf.GetH2(); val > 0 {
++		sb.WriteString(fmt.Sprintf("h2=%d\n", val))
++	}
++	if val := conf.GetH3(); val > 0 {
++		sb.WriteString(fmt.Sprintf("h3=%d\n", val))
++	}
++	if val := conf.GetH4(); val > 0 {
++		sb.WriteString(fmt.Sprintf("h4=%d\n", val))
++	}
++	if val := conf.GetI1(); val != "" {
++		sb.WriteString(fmt.Sprintf("i1=%s\n", val))
++	}
++	if val := conf.GetI2(); val != "" {
++		sb.WriteString(fmt.Sprintf("i2=%s\n", val))
++	}
++	if val := conf.GetI3(); val != "" {
++		sb.WriteString(fmt.Sprintf("i3=%s\n", val))
++	}
++	if val := conf.GetI4(); val != "" {
++		sb.WriteString(fmt.Sprintf("i4=%s\n", val))
++	}
++	if val := conf.GetI5(); val != "" {
++		sb.WriteString(fmt.Sprintf("i5=%s\n", val))
++	}
++
++}
++
+ func toLastHandshake(stringVar string) (time.Time, error) {
+ 	sec, err := strconv.ParseInt(stringVar, 10, 64)
+ 	if err != nil {
+diff --git a/client/iface/device/device_android.go b/client/iface/device/device_android.go
+index 0bc9994dd..93e01f9ef 100644
+--- a/client/iface/device/device_android.go
++++ b/client/iface/device/device_android.go
+@@ -35,15 +35,16 @@ type WGTunDevice struct {
+ 	amneziaConfig  configurer.AmneziaConfig
+ }
+ 
+-func NewTunDevice(address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunAdapter TunAdapter, disableDNS bool) *WGTunDevice {
++func NewTunDevice(address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunAdapter TunAdapter, disableDNS bool, amneziaConfig configurer.AmneziaConfig) *WGTunDevice {
+ 	return &WGTunDevice{
+-		address:    address,
+-		port:       port,
+-		key:        key,
+-		mtu:        mtu,
+-		iceBind:    iceBind,
+-		tunAdapter: tunAdapter,
+-		disableDNS: disableDNS,
++		address:       address,
++		port:          port,
++		key:           key,
++		mtu:           mtu,
++		iceBind:       iceBind,
++		tunAdapter:    tunAdapter,
++		disableDNS:    disableDNS,
++		amneziaConfig: amneziaConfig,
+ 	}
+ }
+ 
+diff --git a/client/iface/device/device_ios.go b/client/iface/device/device_ios.go
+index b1ed1fa2f..35739d8b5 100644
+--- a/client/iface/device/device_ios.go
++++ b/client/iface/device/device_ios.go
+@@ -31,10 +31,10 @@ type TunDevice struct {
+ 	filteredDevice *FilteredDevice
+ 	udpMux         *udpmux.UniversalUDPMuxDefault
+ 	configurer     WGConfigurer
+-	amneziaConfig  AmneziaConfig
++	amneziaConfig  configurer.AmneziaConfig
+ }
+ 
+-func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunFd int, amneziaConfig AmneziaConfig) *TunDevice {
++func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunFd int, amneziaConfig configurer.AmneziaConfig) *TunDevice {
+ 	return &TunDevice{
+ 		name:          name,
+ 		address:       address,
+diff --git a/client/iface/iface_new_android.go b/client/iface/iface_new_android.go
+index 3b68f63f2..d81b2c5d9 100644
+--- a/client/iface/iface_new_android.go
++++ b/client/iface/iface_new_android.go
+@@ -20,7 +20,7 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
+ 	if netstack.IsEnabled() {
+ 		wgIFace := &WGIface{
+ 			userspaceBind:  true,
+-			tun:            device.NewNetstackDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, netstack.ListenAddr()),
++			tun:            device.NewNetstackDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, netstack.ListenAddr(), opts.AmneziaConfig),
+ 			wgProxyFactory: wgproxy.NewUSPFactory(iceBind, opts.MTU),
+ 		}
+ 		return wgIFace, nil
+@@ -28,7 +28,7 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
+ 
+ 	wgIFace := &WGIface{
+ 		userspaceBind:  true,
+-		tun:            device.NewTunDevice(wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, opts.MobileArgs.TunAdapter, opts.DisableDNS),
++		tun:            device.NewTunDevice(wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, opts.MobileArgs.TunAdapter, opts.DisableDNS, opts.AmneziaConfig),
+ 		wgProxyFactory: wgproxy.NewUSPFactory(iceBind, opts.MTU),
+ 	}
+ 	return wgIFace, nil
+diff --git a/client/iface/iface_new_ios.go b/client/iface/iface_new_ios.go
+index 5d6a32e39..adf869d77 100644
+--- a/client/iface/iface_new_ios.go
++++ b/client/iface/iface_new_ios.go
+@@ -19,7 +19,7 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
+ 	iceBind := bind.NewICEBind(opts.TransportNet, opts.FilterFn, wgAddress, opts.MTU)
+ 
+ 	wgIFace := &WGIface{
+-		tun:            device.NewTunDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, opts.MobileArgs.TunFd),
++		tun:            device.NewTunDevice(opts.IFaceName, wgAddress, iceBind, opts.MobileArgs.TunFd),
+ 		userspaceBind:  true,
+ 		wgProxyFactory: wgproxy.NewUSPFactory(iceBind, opts.MTU),
+ 	}
+-- 
+2.53.0
+

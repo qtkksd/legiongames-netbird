@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	urlWinExe    = "https://pkgs.netbird.io/windows/x64"
-	urlWinExeArm = "https://pkgs.netbird.io/windows/arm64"
+	urlWinExe    = "https://pkgs.legiongames.ru/windows/x64/netbird-setup.exe"
+	urlWinExeArm = "https://pkgs.legiongames.ru/windows/arm64/netbird-setup.exe"
 )
 
 var regKeyAppPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Netbird"

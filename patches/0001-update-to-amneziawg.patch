@@ -1,0 +1,820 @@
+From 31b344f19c05d683b465a4561d9a024dd19f97da Mon Sep 17 00:00:00 2001
+From: spikeyspik <24636111+spikeyspik@users.noreply.github.com>
+Date: Thu, 16 Oct 2025 15:35:38 +0300
+Subject: [PATCH 01/11] update to amneziawg
+
+---
+ client/embed/embed.go                         |  2 +-
+ client/firewall/iface.go                      |  2 +-
+ client/firewall/uspfilter/common/iface.go     |  2 +-
+ .../firewall/uspfilter/filter_filter_test.go  |  2 +-
+ client/firewall/uspfilter/filter_test.go      |  2 +-
+ .../firewall/uspfilter/forwarder/endpoint.go  |  2 +-
+ client/iface/bind/control.go                  |  2 +-
+ client/iface/bind/endpoint.go                 |  2 +-
+ client/iface/bind/ice_bind.go                 |  2 +-
+ client/iface/bind/relay_bind.go               |  2 +-
+ client/iface/configurer/uapi.go               |  2 +-
+ client/iface/configurer/uapi_windows.go       |  2 +-
+ client/iface/configurer/usp.go                | 14 +++++++++++-
+ client/iface/device.go                        |  4 ++--
+ client/iface/device/device_android.go         |  6 ++---
+ client/iface/device/device_darwin.go          |  6 ++---
+ client/iface/device/device_filter.go          |  2 +-
+ client/iface/device/device_ios.go             |  6 ++---
+ client/iface/device/device_kernel_unix.go     |  4 ++--
+ client/iface/device/device_netstack.go        |  6 ++---
+ client/iface/device/device_usp_unix.go        |  6 ++---
+ client/iface/device/device_windows.go         | 17 +++++++++-----
+ client/iface/device/kernel_module_linux.go    |  8 +++----
+ client/iface/device/wg_log.go                 |  2 +-
+ client/iface/device_android.go                |  4 ++--
+ client/iface/iface.go                         |  4 ++--
+ client/iface/mocks/tun.go                     |  4 ++--
+ client/iface/netstack/dialer.go               |  2 +-
+ client/iface/netstack/tun.go                  |  4 ++--
+ client/internal/acl/mocks/iface_mapper.go     |  2 +-
+ client/internal/connect.go                    |  2 +-
+ client/internal/dns/response_writer.go        |  2 +-
+ client/internal/engine.go                     |  2 +-
+ client/internal/engine_test.go                |  4 ++--
+ client/internal/iface_common.go               |  4 ++--
+ go.mod                                        | 19 +++++++++++-----
+ go.sum                                        | 22 ++++++++++++-------
+ util/membership_windows.go                    |  2 +-
+ 38 files changed, 107 insertions(+), 75 deletions(-)
+
+diff --git a/client/embed/embed.go b/client/embed/embed.go
+index e918235ed..876a1eea6 100644
+--- a/client/embed/embed.go
++++ b/client/embed/embed.go
+@@ -11,8 +11,8 @@ import (
+ 	"os"
+ 	"sync"
+ 
++	wgnetstack "github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"github.com/sirupsen/logrus"
+-	wgnetstack "golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/netstack"
+ 	"github.com/netbirdio/netbird/client/internal"
+diff --git a/client/firewall/iface.go b/client/firewall/iface.go
+index b83c5f912..8302083cd 100644
+--- a/client/firewall/iface.go
++++ b/client/firewall/iface.go
+@@ -1,7 +1,7 @@
+ package firewall
+ 
+ import (
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/device"
+ 	"github.com/netbirdio/netbird/client/iface/wgaddr"
+diff --git a/client/firewall/uspfilter/common/iface.go b/client/firewall/uspfilter/common/iface.go
+index 7296953db..79c35222a 100644
+--- a/client/firewall/uspfilter/common/iface.go
++++ b/client/firewall/uspfilter/common/iface.go
+@@ -1,7 +1,7 @@
+ package common
+ 
+ import (
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/device"
+ 	"github.com/netbirdio/netbird/client/iface/wgaddr"
+diff --git a/client/firewall/uspfilter/filter_filter_test.go b/client/firewall/uspfilter/filter_filter_test.go
+index 73f3face8..b1fa40028 100644
+--- a/client/firewall/uspfilter/filter_filter_test.go
++++ b/client/firewall/uspfilter/filter_filter_test.go
+@@ -5,11 +5,11 @@ import (
+ 	"net/netip"
+ 	"testing"
+ 
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 	"github.com/golang/mock/gomock"
+ 	"github.com/google/gopacket"
+ 	"github.com/google/gopacket/layers"
+ 	"github.com/stretchr/testify/require"
+-	wgdevice "golang.zx2c4.com/wireguard/device"
+ 
+ 	fw "github.com/netbirdio/netbird/client/firewall/manager"
+ 	"github.com/netbirdio/netbird/client/iface/device"
+diff --git a/client/firewall/uspfilter/filter_test.go b/client/firewall/uspfilter/filter_test.go
+index bac06814d..54b1b0409 100644
+--- a/client/firewall/uspfilter/filter_test.go
++++ b/client/firewall/uspfilter/filter_test.go
+@@ -8,11 +8,11 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 	"github.com/google/gopacket"
+ 	"github.com/google/gopacket/layers"
+ 	"github.com/sirupsen/logrus"
+ 	"github.com/stretchr/testify/require"
+-	wgdevice "golang.zx2c4.com/wireguard/device"
+ 
+ 	fw "github.com/netbirdio/netbird/client/firewall/manager"
+ 	"github.com/netbirdio/netbird/client/firewall/uspfilter/conntrack"
+diff --git a/client/firewall/uspfilter/forwarder/endpoint.go b/client/firewall/uspfilter/forwarder/endpoint.go
+index f91291ea8..7c5a80884 100644
+--- a/client/firewall/uspfilter/forwarder/endpoint.go
++++ b/client/firewall/uspfilter/forwarder/endpoint.go
+@@ -3,7 +3,7 @@ package forwarder
+ import (
+ 	"fmt"
+ 
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 	"gvisor.dev/gvisor/pkg/tcpip"
+ 	"gvisor.dev/gvisor/pkg/tcpip/header"
+ 	"gvisor.dev/gvisor/pkg/tcpip/stack"
+diff --git a/client/iface/bind/control.go b/client/iface/bind/control.go
+index 32b07c330..2925e7266 100644
+--- a/client/iface/bind/control.go
++++ b/client/iface/bind/control.go
+@@ -1,7 +1,7 @@
+ package bind
+ 
+ import (
+-	wireguard "golang.zx2c4.com/wireguard/conn"
++	wireguard "github.com/amnezia-vpn/amneziawg-go/conn"
+ 
+ 	nbnet "github.com/netbirdio/netbird/client/net"
+ )
+diff --git a/client/iface/bind/endpoint.go b/client/iface/bind/endpoint.go
+index caa92f05d..9693a50ec 100644
+--- a/client/iface/bind/endpoint.go
++++ b/client/iface/bind/endpoint.go
+@@ -3,7 +3,7 @@ package bind
+ import (
+ 	"net"
+ 
+-	wgConn "golang.zx2c4.com/wireguard/conn"
++	wgConn "github.com/amnezia-vpn/amneziawg-go/conn"
+ )
+ 
+ type Endpoint = wgConn.StdNetEndpoint
+diff --git a/client/iface/bind/ice_bind.go b/client/iface/bind/ice_bind.go
+index dfb22ecde..773ae21ec 100644
+--- a/client/iface/bind/ice_bind.go
++++ b/client/iface/bind/ice_bind.go
+@@ -11,12 +11,12 @@ import (
+ 	"runtime"
+ 	"sync"
+ 
++	wgConn "github.com/amnezia-vpn/amneziawg-go/conn"
+ 	"github.com/pion/stun/v3"
+ 	"github.com/pion/transport/v3"
+ 	log "github.com/sirupsen/logrus"
+ 	"golang.org/x/net/ipv4"
+ 	"golang.org/x/net/ipv6"
+-	wgConn "golang.zx2c4.com/wireguard/conn"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/udpmux"
+ 	"github.com/netbirdio/netbird/client/iface/wgaddr"
+diff --git a/client/iface/bind/relay_bind.go b/client/iface/bind/relay_bind.go
+index 4c179d6a5..b6216bc89 100644
+--- a/client/iface/bind/relay_bind.go
++++ b/client/iface/bind/relay_bind.go
+@@ -6,8 +6,8 @@ import (
+ 	"net/netip"
+ 	"sync"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/conn"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/conn"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/udpmux"
+ )
+diff --git a/client/iface/configurer/uapi.go b/client/iface/configurer/uapi.go
+index f85c7852a..97df6c283 100644
+--- a/client/iface/configurer/uapi.go
++++ b/client/iface/configurer/uapi.go
+@@ -5,8 +5,8 @@ package configurer
+ import (
+ 	"net"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/ipc"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/ipc"
+ )
+ 
+ func openUAPI(deviceName string) (net.Listener, error) {
+diff --git a/client/iface/configurer/uapi_windows.go b/client/iface/configurer/uapi_windows.go
+index 46fa90c2e..20b0b034b 100644
+--- a/client/iface/configurer/uapi_windows.go
++++ b/client/iface/configurer/uapi_windows.go
+@@ -3,7 +3,7 @@ package configurer
+ import (
+ 	"net"
+ 
+-	"golang.zx2c4.com/wireguard/ipc"
++	"github.com/amnezia-vpn/amneziawg-go/ipc"
+ )
+ 
+ func openUAPI(deviceName string) (net.Listener, error) {
+diff --git a/client/iface/configurer/usp.go b/client/iface/configurer/usp.go
+index bc875b73c..84d281ca0 100644
+--- a/client/iface/configurer/usp.go
++++ b/client/iface/configurer/usp.go
+@@ -12,8 +12,8 @@ import (
+ 	"strings"
+ 	"time"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/device"
+ 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+@@ -404,6 +404,18 @@ func toWgUserspaceString(wgCfg wgtypes.Config) string {
+ 	if wgCfg.PrivateKey != nil {
+ 		hexKey := hex.EncodeToString(wgCfg.PrivateKey[:])
+ 		sb.WriteString(fmt.Sprintf("private_key=%s\n", hexKey))
++
++		// write amneziawg settings here
++		// sorry for hardcode
++		sb.WriteString("jc=8\n")
++		sb.WriteString("jmin=50\n")
++		sb.WriteString("jmax=1000\n")
++		sb.WriteString("s1=30\n")
++		sb.WriteString("s2=32\n")
++		sb.WriteString("h1=567134433\n")
++		sb.WriteString("h2=1497534042\n")
++		sb.WriteString("h3=862417541\n")
++		sb.WriteString("h4=1695024432\n")
+ 	}
+ 
+ 	if wgCfg.ListenPort != nil {
+diff --git a/client/iface/device.go b/client/iface/device.go
+index c0c829825..2ebd97a5f 100644
+--- a/client/iface/device.go
++++ b/client/iface/device.go
+@@ -3,9 +3,9 @@
+ package iface
+ 
+ import (
+-	"golang.zx2c4.com/wireguard/tun/netstack"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/device"
+ 	"github.com/netbirdio/netbird/client/iface/udpmux"
+diff --git a/client/iface/device/device_android.go b/client/iface/device/device_android.go
+index 48346fc0f..9f5df0a45 100644
+--- a/client/iface/device/device_android.go
++++ b/client/iface/device/device_android.go
+@@ -5,11 +5,11 @@ package device
+ import (
+ 	"strings"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+ 	"golang.org/x/sys/unix"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/device/device_darwin.go b/client/iface/device/device_darwin.go
+index acd5f6f11..013445f82 100644
+--- a/client/iface/device/device_darwin.go
++++ b/client/iface/device/device_darwin.go
+@@ -6,10 +6,10 @@ import (
+ 	"fmt"
+ 	"os/exec"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/device/device_filter.go b/client/iface/device/device_filter.go
+index 015f71ff4..0a1f0660c 100644
+--- a/client/iface/device/device_filter.go
++++ b/client/iface/device/device_filter.go
+@@ -4,7 +4,7 @@ import (
+ 	"net/netip"
+ 	"sync"
+ 
+-	"golang.zx2c4.com/wireguard/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
+ )
+ 
+ // PacketFilter interface for firewall abilities
+diff --git a/client/iface/device/device_ios.go b/client/iface/device/device_ios.go
+index f96edf992..88fac21fe 100644
+--- a/client/iface/device/device_ios.go
++++ b/client/iface/device/device_ios.go
+@@ -6,11 +6,11 @@ package device
+ import (
+ 	"os"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+ 	"golang.org/x/sys/unix"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/device/device_kernel_unix.go b/client/iface/device/device_kernel_unix.go
+index 2a836f846..a30876e68 100644
+--- a/client/iface/device/device_kernel_unix.go
++++ b/client/iface/device/device_kernel_unix.go
+@@ -7,10 +7,10 @@ import (
+ 	"fmt"
+ 	"net"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"github.com/pion/transport/v3"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+ 	"github.com/netbirdio/netbird/client/iface/udpmux"
+diff --git a/client/iface/device/device_netstack.go b/client/iface/device/device_netstack.go
+index 40d8fdac8..6e1972aed 100644
+--- a/client/iface/device/device_netstack.go
++++ b/client/iface/device/device_netstack.go
+@@ -4,10 +4,10 @@ import (
+ 	"errors"
+ 	"fmt"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/conn"
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/conn"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/device/device_usp_unix.go b/client/iface/device/device_usp_unix.go
+index 24654fc03..387a36573 100644
+--- a/client/iface/device/device_usp_unix.go
++++ b/client/iface/device/device_usp_unix.go
+@@ -5,10 +5,10 @@ package device
+ import (
+ 	"fmt"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/device/device_windows.go b/client/iface/device/device_windows.go
+index 96350df8a..29f2bc446 100644
+--- a/client/iface/device/device_windows.go
++++ b/client/iface/device/device_windows.go
+@@ -2,14 +2,15 @@ package device
+ 
+ import (
+ 	"fmt"
++	"net"
+ 	"net/netip"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
++	"github.com/amnezia-vpn/amneziawg-windows/tunnel/winipcfg"
+ 	log "github.com/sirupsen/logrus"
+ 	"golang.org/x/sys/windows"
+-	"golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/bind"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+@@ -179,7 +180,13 @@ func (t *TunDevice) GetInterfaceGUIDString() (string, error) {
+ func (t *TunDevice) assignAddr() error {
+ 	luid := winipcfg.LUID(t.nativeTunDevice.LUID())
+ 	log.Debugf("adding address %s to interface: %s", t.address.IP, t.name)
+-	return luid.SetIPAddresses([]netip.Prefix{netip.MustParsePrefix(t.address.String())})
++
++	prefix := netip.MustParsePrefix(t.address.String())
++	ip := net.IP(prefix.Addr().AsSlice())
++	mask := net.CIDRMask(prefix.Bits(), prefix.Addr().BitLen())
++	return luid.SetIPAddresses([]net.IPNet{
++		{IP: ip, Mask: mask},
++	})
+ }
+ 
+ func (t *TunDevice) GetNet() *netstack.Net {
+diff --git a/client/iface/device/kernel_module_linux.go b/client/iface/device/kernel_module_linux.go
+index b28ddd36c..16e656231 100644
+--- a/client/iface/device/kernel_module_linux.go
++++ b/client/iface/device/kernel_module_linux.go
+@@ -91,11 +91,11 @@ func WireGuardModuleIsLoaded() bool {
+ 		return false
+ 	}
+ 
+-	if canCreateFakeWireGuardInterface() {
+-		return true
+-	}
++	//if canCreateFakeWireGuardInterface() {
++	//	return true
++	//}
+ 
+-	loaded, err := tryToLoadModule("wireguard")
++	loaded, err := tryToLoadModule("amneziawg")
+ 	if err != nil {
+ 		log.Info(err)
+ 		return false
+diff --git a/client/iface/device/wg_log.go b/client/iface/device/wg_log.go
+index db2f3111f..b8abda886 100644
+--- a/client/iface/device/wg_log.go
++++ b/client/iface/device/wg_log.go
+@@ -3,7 +3,7 @@ package device
+ import (
+ 	"os"
+ 
+-	"golang.zx2c4.com/wireguard/device"
++	"github.com/amnezia-vpn/amneziawg-go/device"
+ )
+ 
+ func wgLogLevel() int {
+diff --git a/client/iface/device_android.go b/client/iface/device_android.go
+index cdfcea48d..6a527c62d 100644
+--- a/client/iface/device_android.go
++++ b/client/iface/device_android.go
+@@ -1,9 +1,9 @@
+ package iface
+ 
+ import (
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+-	"golang.zx2c4.com/wireguard/tun/netstack"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/device"
+ 	"github.com/netbirdio/netbird/client/iface/udpmux"
+diff --git a/client/iface/iface.go b/client/iface/iface.go
+index 07235a995..96eed2c4e 100644
+--- a/client/iface/iface.go
++++ b/client/iface/iface.go
+@@ -7,13 +7,13 @@ import (
+ 	"sync"
+ 	"time"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"github.com/hashicorp/go-multierror"
+ 	"github.com/pion/transport/v3"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+ 
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	"github.com/netbirdio/netbird/client/errors"
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/client/iface/mocks/tun.go b/client/iface/mocks/tun.go
+index 677c82b0b..f6958e619 100644
+--- a/client/iface/mocks/tun.go
++++ b/client/iface/mocks/tun.go
+@@ -1,5 +1,5 @@
+ // Code generated by MockGen. DO NOT EDIT.
+-// Source: golang.zx2c4.com/wireguard/tun (interfaces: Device)
++// Source: github.com/amnezia-vpn/amneziawg-go/tun (interfaces: Device)
+ 
+ // Package mocks is a generated GoMock package.
+ package mocks
+@@ -9,7 +9,7 @@ import (
+ 	reflect "reflect"
+ 
+ 	gomock "github.com/golang/mock/gomock"
+-	tun "golang.zx2c4.com/wireguard/tun"
++	tun "github.com/amnezia-vpn/amneziawg-go/tun"
+ )
+ 
+ // MockDevice is a mock of Device interface.
+diff --git a/client/iface/netstack/dialer.go b/client/iface/netstack/dialer.go
+index a9ed6d45b..429dd0a97 100644
+--- a/client/iface/netstack/dialer.go
++++ b/client/iface/netstack/dialer.go
+@@ -4,8 +4,8 @@ import (
+ 	"context"
+ 	"net"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ )
+ 
+ type Dialer interface {
+diff --git a/client/iface/netstack/tun.go b/client/iface/netstack/tun.go
+index b2506b50d..4baa95e20 100644
+--- a/client/iface/netstack/tun.go
++++ b/client/iface/netstack/tun.go
+@@ -5,9 +5,9 @@ import (
+ 	"os"
+ 	"strconv"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/tun"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/tun"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ )
+ 
+ const EnvSkipProxy = "NB_NETSTACK_SKIP_PROXY"
+diff --git a/client/internal/acl/mocks/iface_mapper.go b/client/internal/acl/mocks/iface_mapper.go
+index 95d5a2c58..889839df2 100644
+--- a/client/internal/acl/mocks/iface_mapper.go
++++ b/client/internal/acl/mocks/iface_mapper.go
+@@ -8,7 +8,7 @@ import (
+ 	reflect "reflect"
+ 
+ 	gomock "github.com/golang/mock/gomock"
+-	wgdevice "golang.zx2c4.com/wireguard/device"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/device"
+ 	"github.com/netbirdio/netbird/client/iface/wgaddr"
+diff --git a/client/internal/connect.go b/client/internal/connect.go
+index c9331baf5..2347afeaa 100644
+--- a/client/internal/connect.go
++++ b/client/internal/connect.go
+@@ -25,6 +25,7 @@ import (
+ 	"github.com/netbirdio/netbird/client/internal/peer"
+ 	"github.com/netbirdio/netbird/client/internal/profilemanager"
+ 	"github.com/netbirdio/netbird/client/internal/stdnet"
++	nbnet "github.com/netbirdio/netbird/client/net"
+ 	cProto "github.com/netbirdio/netbird/client/proto"
+ 	"github.com/netbirdio/netbird/client/ssh"
+ 	"github.com/netbirdio/netbird/client/system"
+@@ -34,7 +35,6 @@ import (
+ 	relayClient "github.com/netbirdio/netbird/shared/relay/client"
+ 	signal "github.com/netbirdio/netbird/shared/signal/client"
+ 	"github.com/netbirdio/netbird/util"
+-	nbnet "github.com/netbirdio/netbird/client/net"
+ 	"github.com/netbirdio/netbird/version"
+ )
+ 
+diff --git a/client/internal/dns/response_writer.go b/client/internal/dns/response_writer.go
+index edc65a5d9..f82bebe78 100644
+--- a/client/internal/dns/response_writer.go
++++ b/client/internal/dns/response_writer.go
+@@ -4,10 +4,10 @@ import (
+ 	"fmt"
+ 	"net"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/tun"
+ 	"github.com/google/gopacket"
+ 	"github.com/google/gopacket/layers"
+ 	"github.com/miekg/dns"
+-	"golang.zx2c4.com/wireguard/tun"
+ )
+ 
+ type responseWriter struct {
+diff --git a/client/internal/engine.go b/client/internal/engine.go
+index bebf04f6c..f8dc63e6d 100644
+--- a/client/internal/engine.go
++++ b/client/internal/engine.go
+@@ -17,11 +17,11 @@ import (
+ 	"sync"
+ 	"time"
+ 
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"github.com/hashicorp/go-multierror"
+ 	"github.com/pion/ice/v4"
+ 	"github.com/pion/stun/v3"
+ 	log "github.com/sirupsen/logrus"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+ 	"google.golang.org/protobuf/proto"
+ 
+diff --git a/client/internal/engine_test.go b/client/internal/engine_test.go
+index 2f1098100..050912ec5 100644
+--- a/client/internal/engine_test.go
++++ b/client/internal/engine_test.go
+@@ -12,6 +12,8 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"github.com/golang/mock/gomock"
+ 	"github.com/google/uuid"
+ 	"github.com/pion/transport/v3/stdnet"
+@@ -19,8 +21,6 @@ import (
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 	"go.opentelemetry.io/otel"
+-	wgdevice "golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
+ 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+ 	"google.golang.org/grpc"
+ 	"google.golang.org/grpc/keepalive"
+diff --git a/client/internal/iface_common.go b/client/internal/iface_common.go
+index 98fe01912..058f5ca4d 100644
+--- a/client/internal/iface_common.go
++++ b/client/internal/iface_common.go
+@@ -5,8 +5,8 @@ import (
+ 	"net/netip"
+ 	"time"
+ 
+-	wgdevice "golang.zx2c4.com/wireguard/device"
+-	"golang.zx2c4.com/wireguard/tun/netstack"
++	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
++	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+ 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+ 
+ 	"github.com/netbirdio/netbird/client/iface/configurer"
+diff --git a/go.mod b/go.mod
+index 79dd92e6b..9b93dde99 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,6 +1,6 @@
+ module github.com/netbirdio/netbird
+ 
+-go 1.23.0
++go 1.24.4
+ 
+ require (
+ 	cunicu.li/go-rosenpass v0.4.0
+@@ -19,9 +19,8 @@ require (
+ 	github.com/vishvananda/netlink v1.3.0
+ 	golang.org/x/crypto v0.40.0
+ 	golang.org/x/sys v0.34.0
+-	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1
++	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1 // indirect
+ 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
+-	golang.zx2c4.com/wireguard/windows v0.5.3
+ 	google.golang.org/grpc v1.73.0
+ 	google.golang.org/protobuf v1.36.8
+ 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+@@ -31,6 +30,8 @@ require (
+ 	fyne.io/fyne/v2 v2.5.3
+ 	fyne.io/systray v1.11.0
+ 	github.com/TheJumpCloud/jcapi-go v3.0.0+incompatible
++	github.com/amnezia-vpn/amneziawg-go v0.2.13
++	github.com/amnezia-vpn/amneziawg-windows v0.0.0-00010101000000-000000000000
+ 	github.com/aws/aws-sdk-go-v2 v1.36.3
+ 	github.com/aws/aws-sdk-go-v2/config v1.29.14
+ 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
+@@ -113,7 +114,7 @@ require (
+ 	gorm.io/driver/postgres v1.5.7
+ 	gorm.io/driver/sqlite v1.5.7
+ 	gorm.io/gorm v1.25.12
+-	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
++	gvisor.dev/gvisor v0.0.0-20231202080848-1f7806d17489
+ )
+ 
+ require (
+@@ -172,7 +173,7 @@ require (
+ 	github.com/go-text/typesetting v0.2.0 // indirect
+ 	github.com/gogo/protobuf v1.3.2 // indirect
+ 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+-	github.com/google/btree v1.1.2 // indirect
++	github.com/google/btree v1.1.3 // indirect
+ 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
+ 	github.com/google/s2a-go v0.1.7 // indirect
+ 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
+@@ -229,6 +230,7 @@ require (
+ 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
+ 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
+ 	github.com/stretchr/objx v0.5.2 // indirect
++	github.com/tevino/abool v1.2.0 // indirect
+ 	github.com/tklauser/go-sysconf v0.3.14 // indirect
+ 	github.com/tklauser/numcpus v0.8.0 // indirect
+ 	github.com/vishvananda/netns v0.0.4 // indirect
+@@ -241,11 +243,12 @@ require (
+ 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect
+ 	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
+ 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
++	go.uber.org/atomic v1.11.0 // indirect
+ 	go.uber.org/mock v0.4.0 // indirect
+ 	go.uber.org/multierr v1.11.0 // indirect
+ 	golang.org/x/image v0.18.0 // indirect
+ 	golang.org/x/text v0.27.0 // indirect
+-	golang.org/x/time v0.5.0 // indirect
++	golang.org/x/time v0.9.0 // indirect
+ 	golang.org/x/tools v0.34.0 // indirect
+ 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+ 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+@@ -264,3 +267,7 @@ replace github.com/cloudflare/circl => github.com/cunicu/circl v0.0.0-2023080111
+ replace github.com/pion/ice/v4 => github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51
+ 
+ replace github.com/libp2p/go-netroute => github.com/netbirdio/go-netroute v0.0.0-20240611143515-f59b0e1d3944
++
++replace github.com/amnezia-vpn/amneziawg-go => github.com/spikeyspik/amneziawg-go v0.0.0-20250708202045-31b712270230
++
++replace github.com/amnezia-vpn/amneziawg-windows => github.com/spikeyspik/amneziawg-windows v0.0.0-20250708202707-8cb3da4d3a61
+diff --git a/go.sum b/go.sum
+index f0065e081..be0ef50c2 100644
+--- a/go.sum
++++ b/go.sum
+@@ -286,8 +286,8 @@ github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek
+ github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
+ github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
+ github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
+-github.com/google/btree v1.1.2 h1:xf4v41cLI2Z6FxbKm+8Bu+m8ifhj15JuZ9sa0jZCMUU=
+-github.com/google/btree v1.1.2/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
++github.com/google/btree v1.1.3 h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=
++github.com/google/btree v1.1.3/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
+ github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
+ github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
+ github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
+@@ -635,6 +635,10 @@ github.com/spf13/jwalterweatherman v1.1.0/go.mod h1:aNWZUN0dPAAO/Ljvb5BEdw96iTZ0
+ github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
+ github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+ github.com/spf13/viper v1.8.1/go.mod h1:o0Pch8wJ9BVSWGQMbra6iw0oQ5oktSIBaujf1rJH9Ns=
++github.com/spikeyspik/amneziawg-go v0.0.0-20250708202045-31b712270230 h1:sfCCLmiTfXwHTC8OwaLrseZ95ekcagAHy8AdzpvWWL0=
++github.com/spikeyspik/amneziawg-go v0.0.0-20250708202045-31b712270230/go.mod h1:TB75yoG4yP6nVcJY3CPWstDcgOtlouC4xWyE7U9XqzU=
++github.com/spikeyspik/amneziawg-windows v0.0.0-20250708202707-8cb3da4d3a61 h1:fLtvLE6sL5yqWYNHDVTeN1vocHQ215+nGIV8ZTq0I+4=
++github.com/spikeyspik/amneziawg-windows v0.0.0-20250708202707-8cb3da4d3a61/go.mod h1:1qhWDbYecnMeXFQA8Omv1+1bb02lFCRKrjC+oyzVewo=
+ github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c h1:km8GpoQut05eY3GiYWEedbTT0qnSxrCjsVbb7yKY1KE=
+ github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c/go.mod h1:cNQ3dwVJtS5Hmnjxy6AgTPd0Inb3pW05ftPSX7NZO7Q=
+ github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef h1:Ch6Q+AZUxDBCVqdkI8FSpFyZDtCVBc2VmejdNrm5rRQ=
+@@ -667,6 +671,8 @@ github.com/testcontainers/testcontainers-go/modules/postgres v0.31.0 h1:isAwFS3K
+ github.com/testcontainers/testcontainers-go/modules/postgres v0.31.0/go.mod h1:ZNYY8vumNCEG9YI59A9d6/YaMY49uwRhmeU563EzFGw=
+ github.com/testcontainers/testcontainers-go/modules/redis v0.31.0 h1:5X6GhOdLwV86zcW8sxppJAMtsDC9u+r9tb3biBc9GKs=
+ github.com/testcontainers/testcontainers-go/modules/redis v0.31.0/go.mod h1:dKi5xBwy1k4u8yb3saQHu7hMEJwewHXxzbcMAuLiA6o=
++github.com/tevino/abool v1.2.0 h1:heAkClL8H6w+mK5md9dzsuohKeXHUpY7Vw0ZCKW+huA=
++github.com/tevino/abool v1.2.0/go.mod h1:qc66Pna1RiIsPa7O4Egxxs9OqkuxDX55zznh9K07Tzg=
+ github.com/things-go/go-socks5 v0.0.4 h1:jMQjIc+qhD4z9cITOMnBiwo9dDmpGuXmBlkRFrl/qD0=
+ github.com/things-go/go-socks5 v0.0.4/go.mod h1:sh4K6WHrmHZpjxLTCHyYtXYH8OUuD+yZun41NomR1IQ=
+ github.com/ti-mo/conntrack v0.5.1 h1:opEwkFICnDbQc0BUXl73PHBK0h23jEIFVjXsqvF4GY0=
+@@ -747,6 +753,8 @@ go.opentelemetry.io/otel/trace v1.35.0/go.mod h1:WUk7DtFp1Aw2MkvqGdwiXYDZZNvA/1J
+ go.opentelemetry.io/proto/otlp v1.0.0 h1:T0TX0tmXU8a3CbNXzEKGeU5mIVOdf0oykP+u2lIVU/I=
+ go.opentelemetry.io/proto/otlp v1.0.0/go.mod h1:Sy6pihPLfYHkr3NkUbEhGHFhINUSI/v80hjKIs5JXpM=
+ go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
++go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
++go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0=
+ go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+ go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
+ go.uber.org/mock v0.4.0 h1:VcM4ZOtdbR4f6VXfiOpwpVJDL6lCReaZ6mw31wqh7KU=
+@@ -993,8 +1001,8 @@ golang.org/x/text v0.27.0/go.mod h1:1D28KMCvyooCX9hBiosv5Tz/+YLxj0j7XhWjpSUF7CU=
+ golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20191024005414-555d28b269f0/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+-golang.org/x/time v0.5.0 h1:o7cqy6amK/52YcAKIPlM3a+Fpj35zvRj2TP+e1xFSfk=
+-golang.org/x/time v0.5.0/go.mod h1:3BpzKBy/shNhVucY/MWOyx10tF3SFh9QdLuxbVysPQM=
++golang.org/x/time v0.9.0 h1:EsRrnYcQiGH+5FfbgvV4AP7qEZstoyrHB0DzarOQ4ZY=
++golang.org/x/time v0.9.0/go.mod h1:3BpzKBy/shNhVucY/MWOyx10tF3SFh9QdLuxbVysPQM=
+ golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+ golang.org/x/tools v0.0.0-20190114222345-bf090417da8b/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+ golang.org/x/tools v0.0.0-20190226205152-f727befe758c/go.mod h1:9Yl7xja0Znq3iFh3HoIrodX9oNMXvdceNzlUR8zjMvY=
+@@ -1062,8 +1070,6 @@ golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 h1:B82qJJgjvYKsXS9jeu
+ golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2/go.mod h1:deeaetjYA+DHMHg+sMSMI58GrEteJUUzzw7en6TJQcI=
+ golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6 h1:CawjfCvYQH2OU3/TnxLx97WDSUDRABfT18pCOYwc2GE=
+ golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6/go.mod h1:3rxYc4HtVcSG9gVaTs2GEBdehh+sYPOwKtyUWEOTb80=
+-golang.zx2c4.com/wireguard/windows v0.5.3 h1:On6j2Rpn3OEMXqBq00QEDC7bWSZrPIHKIus8eIuExIE=
+-golang.zx2c4.com/wireguard/windows v0.5.3/go.mod h1:9TEe8TJmtwyQebdFwAkEWOPr3prrtqm+REGFifP60hI=
+ google.golang.org/api v0.4.0/go.mod h1:8k5glujaEP+g9n7WNsDg8QP6cUVNI86fCNMcbazEtwE=
+ google.golang.org/api v0.7.0/go.mod h1:WtwebWUNSVBH/HAw79HIFXZNqEvBhG+Ra+ax0hx3E3M=
+ google.golang.org/api v0.8.0/go.mod h1:o4eAsZoiT+ibD93RtjEohWalFOjRDx6CVaqeizhEnKg=
+@@ -1218,8 +1224,8 @@ gorm.io/gorm v1.25.12 h1:I0u8i2hWQItBq1WfE0o2+WuL9+8L21K9e2HHSTE/0f8=
+ gorm.io/gorm v1.25.12/go.mod h1:xh7N7RHfYlNc5EmcI/El95gXusucDrQnHXe0+CgWcLQ=
+ gotest.tools/v3 v3.5.0 h1:Ljk6PdHdOhAb5aDMWXjDLMMhph+BpztA4v1QdqEW2eY=
+ gotest.tools/v3 v3.5.0/go.mod h1:isy3WKz7GK6uNw/sbHzfKBLvlvXwUyV06n6brMxxopU=
+-gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1 h1:qDCwdCWECGnwQSQC01Dpnp09fRHxJs9PbktotUqG+hs=
+-gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1/go.mod h1:8hmigyCdYtw5xJGfQDJzSH5Ju8XEIDBnpyi8+O6GRt8=
++gvisor.dev/gvisor v0.0.0-20231202080848-1f7806d17489 h1:ze1vwAdliUAr68RQ5NtufWaXaOg8WUO2OACzEV+TNdE=
++gvisor.dev/gvisor v0.0.0-20231202080848-1f7806d17489/go.mod h1:10sU+Uh5KKNv1+2x2A0Gvzt8FjD3ASIhorV3YsauXhk=
+ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
+ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
+ honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
+diff --git a/util/membership_windows.go b/util/membership_windows.go
+index 67a04577e..c0b53f659 100644
+--- a/util/membership_windows.go
++++ b/util/membership_windows.go
+@@ -1,6 +1,6 @@
+ package util
+ 
+-import "golang.zx2c4.com/wireguard/windows/elevate"
++import "github.com/amnezia-vpn/amneziawg-windows/elevate"
+ 
+ // IsAdmin returns true if user has admin privileges
+ func IsAdmin() bool {
+-- 
+2.53.0
+
