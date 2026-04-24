@@ -27,8 +27,8 @@ func TestICEBind_CreatesReceiverForBothIPv4AndIPv6(t *testing.T) {
 	rc := receiverCreator{iceBind}
 	pool := createMsgPool()
 
-	// Simulate wireguard-go calling CreateReceiverFn for IPv4
-	ipv4RecvFn := rc.CreateReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, pool)
+	// Simulate wireguard-go calling CreateIPv4ReceiverFn for IPv4
+	ipv4RecvFn := rc.CreateIPv4ReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, pool)
 	require.NotNil(t, ipv4RecvFn)
 
 	iceBind.muUDPMux.Lock()
@@ -37,8 +37,8 @@ func TestICEBind_CreatesReceiverForBothIPv4AndIPv6(t *testing.T) {
 	assert.NotNil(t, iceBind.udpMux, "mux should be created after first connection")
 	iceBind.muUDPMux.Unlock()
 
-	// Simulate wireguard-go calling CreateReceiverFn for IPv6
-	ipv6RecvFn := rc.CreateReceiverFn(ipv6.NewPacketConn(ipv6Conn), ipv6Conn, false, pool)
+	// Simulate wireguard-go calling CreateIPv4ReceiverFn for IPv6
+	ipv6RecvFn := rc.CreateIPv4ReceiverFn(nil, ipv6Conn, false, pool)
 	require.NotNil(t, ipv6RecvFn)
 
 	iceBind.muUDPMux.Lock()
@@ -60,7 +60,7 @@ func TestICEBind_WorksWithIPv4Only(t *testing.T) {
 	defer ipv4Conn.Close()
 
 	rc := receiverCreator{iceBind}
-	recvFn := rc.CreateReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, createMsgPool())
+	recvFn := rc.CreateIPv4ReceiverFn(ipv4.NewPacketConn(ipv4Conn), ipv4Conn, false, createMsgPool())
 	require.NotNil(t, recvFn)
 
 	iceBind.muUDPMux.Lock()
@@ -84,7 +84,7 @@ func TestICEBind_WorksWithIPv6Only(t *testing.T) {
 	defer ipv6Conn.Close()
 
 	rc := receiverCreator{iceBind}
-	recvFn := rc.CreateReceiverFn(ipv6.NewPacketConn(ipv6Conn), ipv6Conn, false, createMsgPool())
+	recvFn := rc.CreateIPv4ReceiverFn(nil, ipv6Conn, false, createMsgPool())
 	require.NotNil(t, recvFn)
 
 	iceBind.muUDPMux.Lock()

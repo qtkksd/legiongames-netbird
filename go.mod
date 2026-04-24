@@ -4,6 +4,8 @@ go 1.25.5
 
 require (
 	cunicu.li/go-rosenpass v0.4.0
+	github.com/amnezia-vpn/amneziawg-go v0.2.13
+	github.com/amnezia-vpn/amneziawg-windows v0.0.0-00010101000000-000000000000
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/golang/protobuf v1.5.4
@@ -325,3 +327,6 @@ replace github.com/libp2p/go-netroute => github.com/netbirdio/go-netroute v0.0.0
 replace github.com/dexidp/dex => github.com/netbirdio/dex v0.244.0
 
 replace github.com/mailru/easyjson => github.com/netbirdio/easyjson v0.9.0
+replace github.com/amnezia-vpn/amneziawg-go => github.com/spikeyspik/amneziawg-go v0.0.0-20250708202045-31b712270230
+
+replace github.com/amnezia-vpn/amneziawg-windows => github.com/spikeyspik/amneziawg-windows v0.0.0-20250708202707-8cb3da4d3a61

@@ -19,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	cryptossh "golang.org/x/crypto/ssh"
 	"golang.org/x/exp/maps"
-	"golang.zx2c4.com/wireguard/tun/netstack"
+	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
 
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 	sshauth "github.com/netbirdio/netbird/client/ssh/auth"

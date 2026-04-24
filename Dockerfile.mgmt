@@ -1,0 +1,20 @@
+FROM golang:1.26-alpine AS builder
+
+RUN apk add --no-cache git gcc musl-dev protobuf-dev protoc
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X github.com/netbirdio/netbird/version.version=0.68.1" -o /out/netbird-mgmt ./management/main.go
+
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /out/netbird-mgmt /usr/local/bin/netbird-mgmt
+
+EXPOSE 80
+
+ENTRYPOINT ["netbird-mgmt"]

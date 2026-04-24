@@ -1,0 +1,246 @@
+From 6e9f4cf654e788d9221dcccdcfeb534a273a237a Mon Sep 17 00:00:00 2001
+From: spikeyspik <24636111+spikeyspik@users.noreply.github.com>
+Date: Sun, 26 Oct 2025 22:32:51 +0300
+Subject: [PATCH 05/11] fix: fixes after proper testing
+
+---
+ client/iface/device/device_darwin.go         |  4 +-
+ client/iface/device/kernel_module.go         |  4 +-
+ client/iface/device/kernel_module_freebsd.go |  4 +-
+ client/iface/device/kernel_module_linux.go   |  5 ++-
+ client/iface/iface_new_linux.go              |  2 +-
+ client/iface/iface_new_windows.go            |  4 +-
+ client/internal/amneziawg/amneziawg.go       | 41 ++++++++++++++++++--
+ client/internal/connect.go                   | 28 ++++++-------
+ client/internal/engine.go                    |  2 +-
+ 9 files changed, 63 insertions(+), 31 deletions(-)
+
+diff --git a/client/iface/device/device_darwin.go b/client/iface/device/device_darwin.go
+index d72688192..870d88b5b 100644
+--- a/client/iface/device/device_darwin.go
++++ b/client/iface/device/device_darwin.go
+@@ -29,10 +29,10 @@ type TunDevice struct {
+ 	filteredDevice *FilteredDevice
+ 	udpMux         *udpmux.UniversalUDPMuxDefault
+ 	configurer     WGConfigurer
+-	amneziaConfig  AmneziaConfig
++	amneziaConfig  configurer.AmneziaConfig
+ }
+ 
+-func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, amneziaConfig AmneziaConfig) *TunDevice {
++func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, amneziaConfig configurer.AmneziaConfig) *TunDevice {
+ 	return &TunDevice{
+ 		name:          name,
+ 		address:       address,
+diff --git a/client/iface/device/kernel_module.go b/client/iface/device/kernel_module.go
+index 1bdd6f7c6..c8a47b546 100644
+--- a/client/iface/device/kernel_module.go
++++ b/client/iface/device/kernel_module.go
+@@ -2,7 +2,9 @@
+ 
+ package device
+ 
++import "github.com/netbirdio/netbird/client/internal/amneziawg"
++
+ // WireGuardModuleIsLoaded check if we can load WireGuard mod (linux only)
+-func WireGuardModuleIsLoaded() bool {
++func WireGuardModuleIsLoaded(conf amneziawg.AmneziaConfig) bool {
+ 	return false
+ }
+diff --git a/client/iface/device/kernel_module_freebsd.go b/client/iface/device/kernel_module_freebsd.go
+index dd6c8b408..8996fa416 100644
+--- a/client/iface/device/kernel_module_freebsd.go
++++ b/client/iface/device/kernel_module_freebsd.go
+@@ -1,7 +1,9 @@
+ package device
+ 
++import "github.com/netbirdio/netbird/client/internal/amneziawg"
++
+ // WireGuardModuleIsLoaded check if kernel support wireguard
+-func WireGuardModuleIsLoaded() bool {
++func WireGuardModuleIsLoaded(conf amneziawg.AmneziaConfig) bool {
+ 	// Despite the fact FreeBSD natively support Wireguard (https://github.com/WireGuard/wireguard-freebsd)
+ 	//  we are currently do not use it, since it is required to add wireguard kernel support to
+ 	//   - https://github.com/netbirdio/netbird/tree/main/sharedsock
+diff --git a/client/iface/device/kernel_module_linux.go b/client/iface/device/kernel_module_linux.go
+index 9af47a339..71df08aba 100644
+--- a/client/iface/device/kernel_module_linux.go
++++ b/client/iface/device/kernel_module_linux.go
+@@ -15,6 +15,7 @@ import (
+ 	"strings"
+ 	"syscall"
+ 
++	"github.com/netbirdio/netbird/client/internal/amneziawg"
+ 	log "github.com/sirupsen/logrus"
+ 	"github.com/vishvananda/netlink"
+ 	"golang.org/x/sys/unix"
+@@ -85,14 +86,14 @@ func ModuleTunIsLoaded() bool {
+ }
+ 
+ // WireGuardModuleIsLoaded check if we can load WireGuard mod (linux only)
+-func WireGuardModuleIsLoaded() bool {
++func WireGuardModuleIsLoaded(conf amneziawg.AmneziaConfig) bool {
+ 
+ 	if os.Getenv(envDisableWireGuardKernel) == "true" {
+ 		log.Debugf("WireGuard kernel module disabled because the %s env is set to true", envDisableWireGuardKernel)
+ 		return false
+ 	}
+ 
+-	useAmnezia := os.Getenv(envUseAmneziaWireGuardKernel) == "true"
++	useAmnezia := !conf.IsEmpty()
+ 	if !useAmnezia && canCreateFakeWireGuardInterface() {
+ 		return true
+ 	}
+diff --git a/client/iface/iface_new_linux.go b/client/iface/iface_new_linux.go
+index 013df6c25..afb6de2cf 100644
+--- a/client/iface/iface_new_linux.go
++++ b/client/iface/iface_new_linux.go
+@@ -29,7 +29,7 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
+ 		return wgIFace, nil
+ 	}
+ 
+-	if device.WireGuardModuleIsLoaded() {
++	if device.WireGuardModuleIsLoaded(opts.AmneziaConfig) {
+ 		wgIFace.tun = device.NewKernelDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, opts.TransportNet)
+ 		wgIFace.wgProxyFactory = wgproxy.NewKernelFactory(opts.WGPort, opts.MTU)
+ 		return wgIFace, nil
+diff --git a/client/iface/iface_new_windows.go b/client/iface/iface_new_windows.go
+index dfd9028e7..5b22e77a8 100644
+--- a/client/iface/iface_new_windows.go
++++ b/client/iface/iface_new_windows.go
+@@ -18,9 +18,9 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
+ 
+ 	var tun WGTunDevice
+ 	if netstack.IsEnabled() {
+-		tun = device.NewNetstackDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, netstack.ListenAddr())
++		tun = device.NewNetstackDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, netstack.ListenAddr(), opts.AmneziaConfig)
+ 	} else {
+-		tun = device.NewTunDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind)
++		tun = device.NewTunDevice(opts.IFaceName, wgAddress, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, opts.AmneziaConfig)
+ 	}
+ 
+ 	wgIFace := &WGIface{
+diff --git a/client/internal/amneziawg/amneziawg.go b/client/internal/amneziawg/amneziawg.go
+index c7ca278ed..913d0906e 100644
+--- a/client/internal/amneziawg/amneziawg.go
++++ b/client/internal/amneziawg/amneziawg.go
+@@ -1,5 +1,7 @@
+ package amneziawg
+ 
++import "github.com/netbirdio/netbird/shared/management/proto"
++
+ // AmneziaConfig describes AmneziaWG obfuscation parameters.
+ // If nil or all fields are zero, it behaves as standard WireGuard.
+ type AmneziaConfig struct {
+@@ -21,10 +23,20 @@ type AmneziaConfig struct {
+ 
+ func (cfg AmneziaConfig) IsEmpty() bool {
+ 
+-	return cfg.Jc == 0 && cfg.Jmin == 0 && cfg.Jmax == 0 &&
+-		cfg.S1 == 0 && cfg.S2 == 0 &&
+-		cfg.H1 == 0 && cfg.H2 == 0 && cfg.H3 == 0 && cfg.H4 == 0 &&
+-		cfg.I1 == "" && cfg.I2 == "" && cfg.I3 == "" && cfg.I4 == "" && cfg.I5 == ""
++	return cfg.Jc == 0 &&
++		cfg.Jmin == 0 &&
++		cfg.Jmax == 0 &&
++		cfg.S1 == 0 &&
++		cfg.S2 == 0 &&
++		cfg.H1 == 0 &&
++		cfg.H2 == 0 &&
++		cfg.H3 == 0 &&
++		cfg.H4 == 0 &&
++		cfg.I1 == "" &&
++		cfg.I2 == "" &&
++		cfg.I3 == "" &&
++		cfg.I4 == "" &&
++		cfg.I5 == ""
+ }
+ func (cfg AmneziaConfig) GetJc() int32   { return cfg.Jc }
+ func (cfg AmneziaConfig) GetJmin() int32 { return cfg.Jmin }
+@@ -40,3 +52,24 @@ func (cfg AmneziaConfig) GetI2() string  { return cfg.I2 }
+ func (cfg AmneziaConfig) GetI3() string  { return cfg.I3 }
+ func (cfg AmneziaConfig) GetI4() string  { return cfg.I4 }
+ func (cfg AmneziaConfig) GetI5() string  { return cfg.I5 }
++
++func FromProtobuf(config *proto.AmneziaConfig) AmneziaConfig {
++
++	return AmneziaConfig{
++		Jc:   *config.Jc,
++		Jmin: *config.Jmin,
++		Jmax: *config.Jmax,
++		S1:   *config.S1,
++		S2:   *config.S2,
++		H1:   *config.H1,
++		H2:   *config.H2,
++		H3:   *config.H3,
++		H4:   *config.H4,
++		I1:   *config.I1,
++		I2:   *config.I2,
++		I3:   *config.I3,
++		I4:   *config.I4,
++		I5:   *config.I5,
++	}
++
++}
+diff --git a/client/internal/connect.go b/client/internal/connect.go
+index b213e6482..7414a9d94 100644
+--- a/client/internal/connect.go
++++ b/client/internal/connect.go
+@@ -209,7 +209,7 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan
+ 		localPeerState := peer.LocalPeerState{
+ 			IP:              loginResp.GetPeerConfig().GetAddress(),
+ 			PubKey:          myPrivateKey.PublicKey().String(),
+-			KernelInterface: device.WireGuardModuleIsLoaded(),
++			KernelInterface: false, // do not load kernel interface by default, as it could brake amneziaWG
+ 			FQDN:            loginResp.GetPeerConfig().GetFqdn(),
+ 		}
+ 		c.statusRecorder.UpdateLocalPeerState(localPeerState)
+@@ -446,22 +446,16 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
+ 		LazyConnectionEnabled: config.LazyConnectionEnabled,
+ 
+ 		MTU: selectMTU(config.MTU, peerConfig.Mtu),
+-		AmneziaConfig: amneziawg.AmneziaConfig{
+-			Jc:   *peerConfig.AmneziaConfig.Jc,
+-			Jmin: *peerConfig.AmneziaConfig.Jmin,
+-			Jmax: *peerConfig.AmneziaConfig.Jmax,
+-			S1:   *peerConfig.AmneziaConfig.S1,
+-			S2:   *peerConfig.AmneziaConfig.S2,
+-			H1:   *peerConfig.AmneziaConfig.H1,
+-			H2:   *peerConfig.AmneziaConfig.H2,
+-			H3:   *peerConfig.AmneziaConfig.H3,
+-			H4:   *peerConfig.AmneziaConfig.H4,
+-			I1:   *peerConfig.AmneziaConfig.I1,
+-			I2:   *peerConfig.AmneziaConfig.I2,
+-			I3:   *peerConfig.AmneziaConfig.I3,
+-			I4:   *peerConfig.AmneziaConfig.I4,
+-			I5:   *peerConfig.AmneziaConfig.I5,
+-		},
++	}
++
++	if peerConfig.AmneziaConfig != nil {
++
++		engineConf.AmneziaConfig = amneziawg.FromProtobuf(peerConfig.AmneziaConfig)
++		log.Infof("Init amneziaWG config from peer: %v", engineConf.AmneziaConfig)
++	} else {
++
++		engineConf.AmneziaConfig = amneziawg.AmneziaConfig{}
++		log.Infof("Init empty amneziaWG config")
+ 	}
+ 
+ 	if config.PreSharedKey != "" {
+diff --git a/client/internal/engine.go b/client/internal/engine.go
+index 277068265..bf170c41b 100644
+--- a/client/internal/engine.go
++++ b/client/internal/engine.go
+@@ -941,7 +941,7 @@ func (e *Engine) updateConfig(conf *mgmProto.PeerConfig) error {
+ 	state := e.statusRecorder.GetLocalPeerState()
+ 	state.IP = e.wgInterface.Address().String()
+ 	state.PubKey = e.config.WgPrivateKey.PublicKey().String()
+-	state.KernelInterface = device.WireGuardModuleIsLoaded()
++	state.KernelInterface = device.WireGuardModuleIsLoaded(amneziawg.FromProtobuf(conf.AmneziaConfig))
+ 	state.FQDN = conf.GetFqdn()
+ 
+ 	e.statusRecorder.UpdateLocalPeerState(state)
+-- 
+2.53.0
+

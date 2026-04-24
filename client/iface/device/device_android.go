@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/amnezia-vpn/amneziawg-go/device"
+	"github.com/amnezia-vpn/amneziawg-go/tun"
+	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/tun"
-	"golang.zx2c4.com/wireguard/tun/netstack"
 
 	"github.com/netbirdio/netbird/client/iface/bind"
 	"github.com/netbirdio/netbird/client/iface/configurer"
@@ -35,9 +35,10 @@ type WGTunDevice struct {
 	udpMux         *udpmux.UniversalUDPMuxDefault
 	configurer     WGConfigurer
 	renewableTun   *RenewableTUN
+	amneziaConfig  configurer.AmneziaConfig
 }
 
-func NewTunDevice(address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunAdapter TunAdapter, disableDNS bool) *WGTunDevice {
+func NewTunDevice(address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, tunAdapter TunAdapter, disableDNS bool, amneziaConfig configurer.AmneziaConfig) *WGTunDevice {
 	return &WGTunDevice{
 		address:      address,
 		port:         port,
@@ -47,6 +48,7 @@ func NewTunDevice(address wgaddr.Address, port int, key string, mtu uint16, iceB
 		tunAdapter:   tunAdapter,
 		disableDNS:   disableDNS,
 		renewableTun: NewRenewableTUN(),
+		amneziaConfig: amneziaConfig,
 	}
 }
 
@@ -87,7 +89,7 @@ func (t *WGTunDevice) Create(routes []string, dns string, searchDomains []string
 	// this helps with support for the older NetBird clients that had a hardcoded direct mode
 	// t.device.DisableSomeRoamingForBrokenMobileSemantics()
 
-	t.configurer = configurer.NewUSPConfigurer(t.device, t.name, t.iceBind.ActivityRecorder())
+	t.configurer = configurer.NewUSPConfigurer(t.device, t.name, t.iceBind.ActivityRecorder(), t.amneziaConfig)
 	err = t.configurer.ConfigureInterface(t.key, t.port)
 	if err != nil {
 		t.device.Close()
