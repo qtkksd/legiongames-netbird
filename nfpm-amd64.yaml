@@ -1,0 +1,19 @@
+name: "netbird"
+arch: "amd64"
+platform: "linux"
+version: "0.68.1-awg.1"
+section: "net"
+priority: "optional"
+maintainer: "LegionGames <admin@legiongames.ru>"
+description: NetBird client with AmneziaWG support for censored networks
+vendor: "NetBird GmbH"
+homepage: "https://netbird.io"
+license: "BSD-3-Clause"
+
+contents:
+  - src: /tmp/netbird-linux-amd64
+    dst: /usr/bin/netbird
+
+scripts:
+  postinstall: release_files/post_install.sh
+  preremove: release_files/pre_remove.sh

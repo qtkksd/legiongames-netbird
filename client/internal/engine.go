@@ -143,7 +143,6 @@ type EngineConfig struct {
 
 	LogPath string
 	TempDir string
-}
 
 	AmneziaConfig amneziawg.AmneziaConfig
 }

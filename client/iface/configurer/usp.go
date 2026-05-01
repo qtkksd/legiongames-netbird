@@ -429,7 +429,7 @@ func (c *WGUSPConfigurer) toWgUserspaceString(wgCfg wgtypes.Config) string {
 		// Write AmneziaWG settings only if config is not empty
 		// If nil or empty, acts as standard WireGuard
 		if !c.amneziaConfig.IsEmpty() {
-			writeAmneziaWgSettings(sb, c.amneziaConfig)
+			writeAmneziaWgSettings(&sb, c.amneziaConfig)
 		}
 	}
 
@@ -481,7 +481,7 @@ func (c *WGUSPConfigurer) toWgUserspaceString(wgCfg wgtypes.Config) string {
 	return sb.String()
 }
 
-func writeAmneziaWgSettings(sb strings.Builder, conf AmneziaConfig) {
+func writeAmneziaWgSettings(sb *strings.Builder, conf AmneziaConfig) {
 
 	if val := conf.GetJc(); val > 0 {
 		sb.WriteString(fmt.Sprintf("jc=%d\n", val))
