@@ -1,0 +1,66 @@
+From c809b78f6cc209560912944496051e523f6ac2e6 Mon Sep 17 00:00:00 2001
+From: Admin <admin@legiongames.ru>
+Date: Mon, 4 May 2026 23:33:28 +0300
+Subject: [PATCH] Redirect update URLs to our fork and pkgs server
+
+- Windows/macOS auto-update: github.com/netbirdio/netbird -> github.com/qtkksd/netbird-amneziawg
+- Management version check: pkgs.netbird.io -> pkgs.legiongames.ru
+---
+ client/internal/updater/installer/installer_run_darwin.go  | 2 +-
+ client/internal/updater/installer/installer_run_windows.go | 4 ++--
+ management/server/instance/manager.go                      | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/client/internal/updater/installer/installer_run_darwin.go b/client/internal/updater/installer/installer_run_darwin.go
+index 248a404aa..384aecc54 100644
+--- a/client/internal/updater/installer/installer_run_darwin.go
++++ b/client/internal/updater/installer/installer_run_darwin.go
+@@ -22,7 +22,7 @@ const (
+ 
+ 	defaultTempDir = "/var/lib/netbird/tmp-install"
+ 
+-	pkgDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_%version_darwin_%arch.pkg"
++	pkgDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_%version_darwin_%arch.pkg"
+ )
+ 
+ var (
+diff --git a/client/internal/updater/installer/installer_run_windows.go b/client/internal/updater/installer/installer_run_windows.go
+index 70c7e32cf..67e256aff 100644
+--- a/client/internal/updater/installer/installer_run_windows.go
++++ b/client/internal/updater/installer/installer_run_windows.go
+@@ -22,8 +22,8 @@ const (
+ 
+ 	msiLogFile = "msi.log"
+ 
+-	msiDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_installer_%version_windows_%arch.msi"
+-	exeDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_installer_%version_windows_%arch.exe"
++	msiDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_installer_%version_windows_%arch.msi"
++	exeDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_installer_%version_windows_%arch.exe"
+ )
+ 
+ var (
+diff --git a/management/server/instance/manager.go b/management/server/instance/manager.go
+index 2c355bb3b..af7420c76 100644
+--- a/management/server/instance/manager.go
++++ b/management/server/instance/manager.go
+@@ -24,7 +24,7 @@ import (
+ 
+ const (
+ 	// Version endpoints
+-	managementVersionURL = "https://pkgs.netbird.io/releases/latest/version"
++	managementVersionURL = "https://pkgs.legiongames.ru/releases/latest/version"
+ 	dashboardReleasesURL = "https://api.github.com/repos/netbirdio/dashboard/releases/latest"
+ 
+ 	// Cache TTL for version information
+@@ -310,7 +310,7 @@ func (m *DefaultManager) fetchVersionInfo(ctx context.Context) (*VersionInfo, er
+ 		CurrentVersion: version.NetbirdVersion(),
+ 	}
+ 
+-	// Fetch management version from pkgs.netbird.io (plain text)
++	// Fetch management version from pkgs.legiongames.ru (plain text)
+ 	mgmtVersion, err := m.fetchPlainTextVersion(ctx, managementVersionURL)
+ 	if err != nil {
+ 		log.WithContext(ctx).Warnf("failed to fetch management version: %v", err)
+-- 
+2.53.0
+
