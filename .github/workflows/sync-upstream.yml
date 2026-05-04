@@ -1,11 +1,10 @@
 name: Sync Upstream
 
 on:
+  push:
+    branches: [amneziawg]
   schedule:
     - cron: "0 3 * * *"
-  workflow_dispatch:
-  push:
-    branches: [ amneziawg ]
 
 permissions:
   contents: write
