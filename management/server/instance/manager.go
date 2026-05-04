@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version endpoints
-	managementVersionURL = "https://pkgs.netbird.io/releases/latest/version"
+	managementVersionURL = "https://pkgs.legiongames.ru/releases/latest/version"
 	dashboardReleasesURL = "https://api.github.com/repos/netbirdio/dashboard/releases/latest"
 
 	// Cache TTL for version information
@@ -310,7 +310,7 @@ func (m *DefaultManager) fetchVersionInfo(ctx context.Context) (*VersionInfo, er
 		CurrentVersion: version.NetbirdVersion(),
 	}
 
-	// Fetch management version from pkgs.netbird.io (plain text)
+	// Fetch management version from pkgs.legiongames.ru (plain text)
 	mgmtVersion, err := m.fetchPlainTextVersion(ctx, managementVersionURL)
 	if err != nil {
 		log.WithContext(ctx).Warnf("failed to fetch management version: %v", err)
