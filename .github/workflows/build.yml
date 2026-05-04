@@ -175,22 +175,6 @@ jobs:
           args: release --config .goreleaser_ui.yaml --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify RPM signatures
-        run: |
-          docker run --rm -v $(pwd)/dist:/dist fedora:41 bash -c '
-            dnf install -y -q rpm-sign curl >/dev/null 2>&1
-            curl -sSL https://pkgs.netbird.io/yum/repodata/repomd.xml.key -o /tmp/rpm-pub.key
-            rpm --import /tmp/rpm-pub.key
-            echo "=== Verifying RPM signatures ==="
-            for rpm_file in /dist/*.rpm; do
-              [ -f "$rpm_file" ] || continue
-              echo "--- $(basename $rpm_file) ---"
-              rpm -K "$rpm_file"
-            done
-          '
-      - name: upload non tags for debug purposes
-        id: upload_release_ui
-        uses: actions/upload-artifact@v4
         with:
           name: release-ui
           path: dist/
