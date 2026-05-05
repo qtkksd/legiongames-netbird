@@ -14,7 +14,7 @@ env:
 jobs:
 
   release:
-    runs-on: ubuntu-24.04-8-core
+    runs-on: ubuntu-latest
     outputs:
       release_artifact_url: ${{ steps.upload_release.outputs.artifact-url }}
       linux_packages_artifact_url: ${{ steps.upload_linux_packages.outputs.artifact-url }}
