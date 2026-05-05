@@ -175,6 +175,10 @@ jobs:
           args: release --config .goreleaser_ui.yaml --clean ${{ env.flags }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: upload non tags for debug purposes
+        id: upload_release_ui
+        uses: actions/upload-artifact@v4
         with:
           name: release-ui
           path: dist/
@@ -221,6 +225,9 @@ jobs:
       - name: Download UI release artifacts
         uses: actions/download-artifact@v4
         with:
+      - name: upload non tags for debug purposes
+        id: upload_release_ui
+        uses: actions/upload-artifact@v4
           name: release-ui
           path: release-ui
 
