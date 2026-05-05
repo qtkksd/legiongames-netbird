@@ -324,3 +324,11 @@ jobs:
             netbird_installer_test_windows_${{ matrix.arch }}.msi
           retention-days: 3
 
+      - name: Upload installers to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} netbird_installer_test_windows_${{ matrix.arch }}.exe --clobber
+          gh release upload ${{ github.ref_name }} netbird_installer_test_windows_${{ matrix.arch }}.msi --clobber
+
