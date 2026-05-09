@@ -281,10 +281,17 @@ CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${UI_APP_EXE}"
 SectionEnd
 
 Section -Post
-ExecWait '"$INSTDIR\${MAIN_APP_EXE}" service install'
-ExecWait '"$INSTDIR\${MAIN_APP_EXE}" service start'
-# sleep a bit for visibility
-Sleep 1000
+    # Force stop existing NetBird service
+    ExecWait "net stop NetBird"
+    ExecWait "taskkill /F /IM netbird.exe"
+    Sleep 2000
+    
+    # wintun.dll already in dist, restart service to reload it
+    ExecWait "net start NetBird"
+    ExecWait '"\$INSTDIR\${MAIN_APP_EXE}" service install'
+    
+    # sleep a bit for visibility
+    Sleep 1000
 SectionEnd
 ######################################################################
 
