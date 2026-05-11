@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultWgKeepAlive = 25 * time.Second
+	defaultWgKeepAlive = 10 * time.Second
 	fallbackDelay      = 5 * time.Second
 )
 

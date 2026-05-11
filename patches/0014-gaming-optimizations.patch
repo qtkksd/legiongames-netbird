@@ -1,0 +1,26 @@
+diff --git a/client/iface/iface.go b/client/iface/iface.go
+index fa77424ca..ef65f7a23 100644
+--- a/client/iface/iface.go
++++ b/client/iface/iface.go
+@@ -27,7 +27,7 @@ import (
+ )
+ 
+ const (
+-	DefaultMTU         = 1280
++	DefaultMTU         = 1380
+ 	MinMTU             = 576
+ 	MaxMTU             = 8192
+ 	DefaultWgPort      = 51820
+diff --git a/client/internal/peer/endpoint.go b/client/internal/peer/endpoint.go
+index 9ba1efb6e..5fccf383c 100644
+--- a/client/internal/peer/endpoint.go
++++ b/client/internal/peer/endpoint.go
+@@ -11,7 +11,7 @@ import (
+ )
+ 
+ const (
+-	defaultWgKeepAlive = 25 * time.Second
++	defaultWgKeepAlive = 10 * time.Second
+ 	fallbackDelay      = 5 * time.Second
+ )
+ 
