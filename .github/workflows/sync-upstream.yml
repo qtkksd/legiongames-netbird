@@ -3,8 +3,6 @@ name: Sync Upstream
 on:
   push:
     branches: [amneziawg]
-  schedule:
-    - cron: "0 3 * * *"
 
 permissions:
   contents: write
