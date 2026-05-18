@@ -15,9 +15,12 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/netbirdio/netbird/client/internal/amneziawg"
 	log "github.com/sirupsen/logrus"
+
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc/codes"
 	gstatus "google.golang.org/grpc/status"
+
+	"github.com/netbirdio/netbird/client/iface/wgaddr"
 
 	"github.com/netbirdio/netbird/client/iface"
 	"github.com/netbirdio/netbird/client/iface/device"
@@ -113,7 +116,6 @@ func (c *ConnectClient) RunOniOS(
 	fileDescriptor int32,
 	networkChangeListener listener.NetworkChangeListener,
 	dnsManager dns.IosDnsManager,
-	dnsAddresses []netip.AddrPort,
 	stateFilePath string,
 ) error {
 	// Set GC percent to 5% to reduce memory usage as iOS only allows 50MB of memory for the extension.
@@ -123,7 +125,6 @@ func (c *ConnectClient) RunOniOS(
 		FileDescriptor:        fileDescriptor,
 		NetworkChangeListener: networkChangeListener,
 		DnsManager:            dnsManager,
-		HostDNSAddresses:      dnsAddresses,
 		StateFilePath:         stateFilePath,
 	}
 	return c.run(mobileDependency, nil, "")
@@ -528,9 +529,20 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
 	if config.NetworkMonitor != nil {
 		nm = *config.NetworkMonitor
 	}
+	wgAddr, err := wgaddr.ParseWGAddress(peerConfig.Address)
+	if err != nil {
+		return nil, fmt.Errorf("parse overlay address %q: %w", peerConfig.Address, err)
+	}
+
+	if !config.DisableIPv6 {
+		if err := wgAddr.SetIPv6FromCompact(peerConfig.GetAddressV6()); err != nil {
+			log.Warn(err)
+		}
+	}
+
 	engineConf := &EngineConfig{
 		WgIfaceName:                   config.WgIface,
-		WgAddr:                        peerConfig.Address,
+		WgAddr:                        wgAddr,
 		IFaceBlackList:                config.IFaceBlackList,
 		DisableIPv6Discovery:          config.DisableIPv6Discovery,
 		WgPrivateKey:                  key,
@@ -555,6 +567,7 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
 		DisableFirewall:     config.DisableFirewall,
 		BlockLANAccess:      config.BlockLANAccess,
 		BlockInbound:        config.BlockInbound,
+		DisableIPv6:         config.DisableIPv6,
 
 		LazyConnectionEnabled: config.LazyConnectionEnabled,
 
@@ -639,6 +652,7 @@ func loginToManagement(ctx context.Context, client mgm.Client, pubSSHKey []byte,
 		config.DisableFirewall,
 		config.BlockLANAccess,
 		config.BlockInbound,
+		config.DisableIPv6,
 		config.LazyConnectionEnabled,
 		config.EnableSSHRoot,
 		config.EnableSSHSFTP,

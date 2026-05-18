@@ -2,15 +2,14 @@ package device
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/windows"
 	"github.com/amnezia-vpn/amneziawg-go/device"
 	"github.com/amnezia-vpn/amneziawg-go/tun"
 	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
-	"github.com/amnezia-vpn/amneziawg-windows/tunnel/winipcfg"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sys/windows"
+	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 
 	"github.com/netbirdio/netbird/client/iface/bind"
 	"github.com/netbirdio/netbird/client/iface/configurer"
@@ -38,12 +37,12 @@ type TunDevice struct {
 
 func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, amneziaConfig configurer.AmneziaConfig) *TunDevice {
 	return &TunDevice{
-		name:          name,
-		address:       address,
-		port:          port,
-		key:           key,
-		mtu:           mtu,
-		iceBind:       iceBind,
+		name:    name,
+		address: address,
+		port:    port,
+		key:     key,
+		mtu:     mtu,
+		iceBind: iceBind,
 		amneziaConfig: amneziaConfig,
 	}
 }
@@ -90,7 +89,21 @@ func (t *TunDevice) Create() (WGConfigurer, error) {
 	err = nbiface.Set()
 	if err != nil {
 		t.device.Close()
-		return nil, fmt.Errorf("got error when getting setting the interface mtu: %s", err)
+		return nil, fmt.Errorf("set IPv4 interface MTU: %s", err)
+	}
+
+	if t.address.HasIPv6() {
+		nbiface6, err := luid.IPInterface(windows.AF_INET6)
+		if err != nil {
+			log.Warnf("failed to get IPv6 interface for MTU, continuing v4-only: %v", err)
+			t.address.ClearIPv6()
+		} else {
+			nbiface6.NLMTU = uint32(t.mtu)
+			if err := nbiface6.Set(); err != nil {
+				log.Warnf("failed to set IPv6 interface MTU, continuing v4-only: %v", err)
+				t.address.ClearIPv6()
+			}
+		}
 	}
 	err = t.assignAddr()
 	if err != nil {
@@ -181,14 +194,21 @@ func (t *TunDevice) GetInterfaceGUIDString() (string, error) {
 // assignAddr Adds IP address to the tunnel interface and network route based on the range provided
 func (t *TunDevice) assignAddr() error {
 	luid := winipcfg.LUID(t.nativeTunDevice.LUID())
-	log.Debugf("adding address %s to interface: %s", t.address.IP, t.name)
 
-	prefix := netip.MustParsePrefix(t.address.String())
-	ip := net.IP(prefix.Addr().AsSlice())
-	mask := net.CIDRMask(prefix.Bits(), prefix.Addr().BitLen())
-	return luid.SetIPAddresses([]net.IPNet{
-		{IP: ip, Mask: mask},
-	})
+	v4Prefix := t.address.Prefix()
+	if t.address.HasIPv6() {
+		v6Prefix := t.address.IPv6Prefix()
+		log.Debugf("adding addresses %s, %s to interface: %s", v4Prefix, v6Prefix, t.name)
+		if err := luid.SetIPAddresses([]netip.Prefix{v4Prefix, v6Prefix}); err != nil {
+			log.Warnf("failed to assign dual-stack addresses, retrying v4-only: %v", err)
+			t.address.ClearIPv6()
+			return luid.SetIPAddresses([]netip.Prefix{v4Prefix})
+		}
+		return nil
+	}
+
+	log.Debugf("adding address %s to interface: %s", v4Prefix, t.name)
+	return luid.SetIPAddresses([]netip.Prefix{v4Prefix})
 }
 
 func (t *TunDevice) GetNet() *netstack.Net {
