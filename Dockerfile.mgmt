@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X github.com/netbirdio/netbird/version.version=0.70.4" -o /out/netbird-mgmt ./management/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X github.com/netbirdio/netbird/version.version=0.70.5" -o /out/netbird-mgmt ./management/main.go
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
