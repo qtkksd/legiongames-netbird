@@ -1,0 +1,26 @@
+diff --git a/client/ui/event_handler.go b/client/ui/event_handler.go
+index 876fcef5f..6a43e3891 100644
+--- a/client/ui/event_handler.go
++++ b/client/ui/event_handler.go
+@@ -204,7 +204,7 @@ func (h *eventHandler) handleQuitClick() {
+ }
+ 
+ func (h *eventHandler) handleGitHubClick() {
+-	if err := openURL("https://github.com/netbirdio/netbird"); err != nil {
++	if err := openURL("https://github.com/qtkksd/netbird-amneziawg"); err != nil {
+ 		log.Errorf("failed to open GitHub URL: %v", err)
+ 	}
+ }
+diff --git a/management/internals/server/server.go b/management/internals/server/server.go
+index 9b8716da1..ceb02f97d 100644
+--- a/management/internals/server/server.go
++++ b/management/internals/server/server.go
+@@ -224,7 +224,7 @@ func (s *BaseServer) Start(ctx context.Context) error {
+ 	s.update = version.NewUpdateAndStart("nb/management")
+ 	s.update.SetDaemonVersion(version.NetbirdVersion())
+ 	s.update.SetOnUpdateListener(func() {
+-		log.WithContext(ctx).Infof("your management version, \"%s\", is outdated, a new management version is available. Learn more here: https://github.com/netbirdio/netbird/releases", version.NetbirdVersion())
++		log.WithContext(ctx).Infof("your management version, \"%s\", is outdated, a new management version is available. Learn more here: https://github.com/qtkksd/netbird-amneziawg/releases", version.NetbirdVersion())
+ 	})
+ 
+ 	return nil
