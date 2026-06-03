@@ -29,6 +29,7 @@ type wgIfaceBase interface {
 	UpdateAddr(newAddr wgaddr.Address) error
 	GetProxy() wgproxy.Proxy
 	GetProxyPort() uint16
+	GetBind() device.EndpointManager
 	UpdatePeer(peerKey string, allowedIps []netip.Prefix, keepAlive time.Duration, endpoint *net.UDPAddr, preSharedKey *wgtypes.Key) error
 	RemoveEndpointAddress(key string) error
 	RemovePeer(peerKey string) error

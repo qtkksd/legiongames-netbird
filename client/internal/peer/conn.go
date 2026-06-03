@@ -15,6 +15,7 @@ import (
 
 	"github.com/netbirdio/netbird/client/iface/configurer"
 	"github.com/netbirdio/netbird/client/iface/wgproxy"
+	"github.com/netbirdio/netbird/client/iface/hy2"
 	"github.com/netbirdio/netbird/client/internal/metrics"
 	"github.com/netbirdio/netbird/client/internal/peer/conntype"
 	"github.com/netbirdio/netbird/client/internal/peer/dispatcher"
@@ -49,6 +50,7 @@ type ServiceDependencies struct {
 	PeerConnDispatcher *dispatcher.ConnectionDispatcher
 	PortForwardManager *portforward.Manager
 	MetricsRecorder    MetricsRecorder
+\tHy2Manager *hy2.Manager
 }
 
 type WgConfig struct {
@@ -135,6 +137,7 @@ type Conn struct {
 
 	// Connection stage timestamps for metrics
 	metricsRecorder MetricsRecorder
+\thy2Manager *hy2.Manager
 	metricsStages   *MetricsStages
 }
 
@@ -163,6 +166,7 @@ func NewConn(config ConnConfig, services ServiceDependencies) (*Conn, error) {
 		endpointUpdater:    NewEndpointUpdater(connLog, config.WgConfig, isController(config)),
 		wgWatcher:          NewWGWatcher(connLog, config.WgConfig.WgInterface, config.Key, dumpState),
 		metricsRecorder:    services.MetricsRecorder,
+\t	hy2Manager:     services.Hy2Manager,
 	}
 
 	return conn, nil
@@ -397,6 +401,16 @@ func (conn *Conn) onICEConnectionIsReady(priority conntype.ConnPriority, iceConn
 			return
 		}
 		ep = directEp
+		// If Hysteria2 transport is enabled, create a Hy2 QUIC tunnel
+		// to the peer for DPI-resistant P2P transport.
+		if conn.hy2Manager != nil {
+			overlayIP := conn.config.WgConfig.AllowedIps[0].Addr()
+			if errHy := conn.hy2Manager.CreateTunnel(conn.ctx, conn.config.Key, overlayIP, directEp); errHy != nil {
+				conn.Log.Warnf("Hy2 tunnel creation failed, using raw WG: %v", errHy)
+			} else {
+				conn.Log.Infof("Hy2 tunnel established for peer %s", conn.config.Key)
+			}
+		}
 	}
 
 	if conn.wgProxyRelay != nil {

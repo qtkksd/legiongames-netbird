@@ -34,6 +34,7 @@ import (
 	"github.com/netbirdio/netbird/client/iface/device"
 	nbnetstack "github.com/netbirdio/netbird/client/iface/netstack"
 	"github.com/netbirdio/netbird/client/iface/udpmux"
+	"github.com/netbirdio/netbird/client/iface/hy2"
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 	"github.com/netbirdio/netbird/client/internal/acl"
 	"github.com/netbirdio/netbird/client/internal/debug"
@@ -151,6 +152,8 @@ type EngineConfig struct {
 	TempDir string
 
 	AmneziaConfig amneziawg.AmneziaConfig
+\t// Hy2Config enables Hysteria2 transport (QUIC/HTTP3 masquerade)
+	Hy2Config *hy2.Config
 }
 // EngineServices holds the external service dependencies required by the Engine.
 type EngineServices struct {
@@ -199,6 +202,8 @@ type Engine struct {
 	cancel context.CancelFunc
 
 	wgInterface WGIface
+\t// hy2Manager manages Hysteria2 tunnels for DPI-resistant transport
+	hy2Manager  *hy2.Manager
 
 	udpMux *udpmux.UniversalUDPMuxDefault
 
@@ -542,6 +547,19 @@ func (e *Engine) Start(netbirdConfig *mgmProto.NetbirdConfig, mgmtURL *url.URL) 
 
 	// Set up notrack rules immediately after proxy is listening to prevent
 	// conntrack entries from being created before the rules are in place
+	// Initialize Hysteria2 transport for DPI-resistant P2P
+	if e.config.Hy2Config != nil {
+		var errHy2 error
+		e.hy2Manager, errHy2 = hy2.NewManager(e.config.Hy2Config, e.wgInterface)
+		if errHy2 != nil {
+			log.Warnf("failed to create Hy2 manager: %v, Hy2 disabled", errHy2)
+		} else if err := e.hy2Manager.Start(e.ctx); err != nil {
+			log.Warnf("failed to start Hy2 manager: %v, Hy2 disabled", err)
+			e.hy2Manager = nil
+		} else {
+			log.Infof("Hysteria2 transport enabled")
+		}
+	}
 	e.setupWGProxyNoTrack()
 
 	// Start after interface is up since port may have been resolved from 0 or changed if occupied
@@ -1649,6 +1667,7 @@ func (e *Engine) createPeerConn(pubKey string, allowedIPs []netip.Prefix, agentV
 		SrWatcher:          e.srWatcher,
 		PortForwardManager: e.portForwardManager,
 		MetricsRecorder:    e.clientMetrics,
+\t	Hy2Manager:        e.hy2Manager,
 	}
 	peerConn, err := peer.NewConn(config, serviceDependencies)
 	if err != nil {
