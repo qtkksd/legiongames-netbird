@@ -405,10 +405,10 @@ func (conn *Conn) onICEConnectionIsReady(priority conntype.ConnPriority, iceConn
 		// to the peer for DPI-resistant P2P transport.
 		if conn.hy2Manager != nil {
 			overlayIP := conn.config.WgConfig.AllowedIps[0].Addr()
-			if errHy := conn.hy2Manager.CreateTunnel(conn.ctx, conn.config.Key, overlayIP, directEp); errHy != nil {
+			if errHy := conn.hy2Manager.CreateTunnel(conn.ctx, conn.config.Key, overlayIP, iceConnInfo.RemoteConn); errHy != nil {
 				conn.Log.Warnf("Hy2 tunnel creation failed, using raw WG: %v", errHy)
 			} else {
-				conn.Log.Infof("Hy2 tunnel established for peer %s", conn.config.Key)
+				conn.Log.Infof("Hy2 tunnel established for peer %s via ICE", conn.config.Key)
 			}
 		}
 	}

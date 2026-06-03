@@ -2,7 +2,9 @@ package hy2
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"sync"
@@ -22,7 +24,6 @@ type Manager struct {
 	wgIface  WGIface
 
 	mu      sync.Mutex
-	server  *Hy2Server
 	tunnels map[string]*Hy2Tunnel
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -53,14 +54,6 @@ func (m *Manager) Start(ctx context.Context) error {
 		return nil
 	}
 	m.ctx, m.cancel = context.WithCancel(ctx)
-	if m.config.ServerEnabled {
-		server, err := NewHy2Server(m.ctx, m.config, m)
-		if err != nil {
-			return fmt.Errorf("start Hy2 server: %w", err)
-		}
-		m.server = server
-		log.Infof("Hy2 server started on %s", m.config.ServerListenAddr)
-	}
 	m.started = true
 	return nil
 }
@@ -80,17 +73,14 @@ func (m *Manager) Close() error {
 		}
 	}
 	m.tunnels = make(map[string]*Hy2Tunnel)
-	if m.server != nil {
-		if err := m.server.Close(); err != nil {
-			log.Warnf("Hy2 server close error: %v", err)
-		}
-		m.server = nil
-	}
 	m.started = false
 	return nil
 }
 
-func (m *Manager) CreateTunnel(ctx context.Context, peerKey string, overlayIP netip.Addr, peerAddr *net.UDPAddr) error {
+// CreateTunnel establishes a Hy2 P2P transport over the ICE hole-punched connection.
+// iceConn is the ICE agents Dial() or Accept() result -- a bidirectional UDP path
+// through NAT that does not require port forwarding.
+func (m *Manager) CreateTunnel(ctx context.Context, peerKey string, overlayIP netip.Addr, iceConn net.Conn) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.ctx == nil || m.ctx.Err() != nil {
@@ -100,32 +90,11 @@ func (m *Manager) CreateTunnel(ctx context.Context, peerKey string, overlayIP ne
 		log.Debugf("Hy2 tunnel for peer %s already exists", peerKey)
 		return nil
 	}
-	hy2Addr := fmt.Sprintf("%s:%d", peerAddr.IP.String(), 4433)
-	tunnel, err := NewHy2Tunnel(ctx, hy2Addr, peerKey)
-	if err != nil {
-		return fmt.Errorf("create Hy2 tunnel: %w", err)
-	}
+	tunnel := &Hy2Tunnel{conn: iceConn, peerKey: peerKey}
 	go tunnel.bridgeToWG(m.ctx, m.injector, overlayIP)
 	m.tunnels[peerKey] = tunnel
-	log.Infof("Hy2 tunnel created for peer %s via %s", peerKey, hy2Addr)
+	log.Infof("Hy2 tunnel created for peer %s via ICE path", peerKey)
 	return nil
-}
-
-func (m *Manager) onIncomingTunnel(ctx context.Context, peerKey string, overlayIP netip.Addr, conn net.Conn) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.ctx == nil || m.ctx.Err() != nil {
-		conn.Close()
-		return
-	}
-	if _, exists := m.tunnels[peerKey]; exists {
-		conn.Close()
-		return
-	}
-	tunnel := &Hy2Tunnel{conn: conn, peerKey: peerKey}
-	go tunnel.bridgeToWG(m.ctx, m.injector, overlayIP)
-	m.tunnels[peerKey] = tunnel
-	log.Infof("Hy2 tunnel accepted for incoming peer %s", peerKey)
 }
 
 type Hy2Tunnel struct {
@@ -133,33 +102,49 @@ type Hy2Tunnel struct {
 	peerKey string
 }
 
-func NewHy2Tunnel(ctx context.Context, addr string, peerKey string) (*Hy2Tunnel, error) {
-	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("dial Hy2 peer %s: %w", addr, err)
-	}
-	return &Hy2Tunnel{conn: conn, peerKey: peerKey}, nil
-}
-
+// bridgeToWG bridges packets between the ICE connection and the WireGuard device.
+// The ICE connection is a hole-punched UDP path. Each Write() on it sends a datagram
+// to the peer; each Read() receives one. We add a 2-byte length prefix for framing.
 func (t *Hy2Tunnel) bridgeToWG(ctx context.Context, injector EndpointInjector, overlayIP netip.Addr) {
 	defer t.conn.Close()
+
+	// Register for outbound: when WG sends to overlayIP, ICEBind routes through this conn.
 	injector.SetEndpoint(overlayIP, t.conn)
 	defer injector.RemoveEndpoint(overlayIP)
+
+	// Inbound: read from ICE conn, inject into WG via ReceiveFromEndpoint.
 	buf := make([]byte, 2048)
 	for {
-		n, err := t.conn.Read(buf)
+		n, err := readFrame(t.conn, buf)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
 			}
-			log.Debugf("Hy2 tunnel read error: %v", err)
+			log.Debugf("Hy2 tunnel read error for peer %s: %v", t.peerKey, err)
 			return
 		}
 		if n > 0 {
+			// Use a dummy endpoint -- WireGuard identifies the peer by the overlay IP
+			// mapped via SetEndpoint, not by this endpoint address.
 			ep := &bind.Endpoint{AddrPort: netip.MustParseAddrPort("127.0.0.1:0")}
 			injector.ReceiveFromEndpoint(ctx, ep, buf[:n])
 		}
 	}
+}
+
+// readFrame reads a length-prefixed frame from the connection.
+// WireGuard packets vary in size; the 2-byte length prefix preserves
+// packet boundaries over the stream-oriented ICE connection.
+func readFrame(r io.Reader, buf []byte) (int, error) {
+	var lenBuf [2]byte
+	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
+		return 0, err
+	}
+	dataLen := binary.BigEndian.Uint16(lenBuf[:])
+	if int(dataLen) > len(buf) {
+		return 0, fmt.Errorf("frame too large: %d > %d", dataLen, len(buf))
+	}
+	return io.ReadFull(r, buf[:dataLen])
 }
 
 func (t *Hy2Tunnel) Close() error {
