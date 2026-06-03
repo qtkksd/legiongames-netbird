@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"net/netip"
 	"runtime"
 	"runtime/debug"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/netbirdio/netbird/client/internal/amneziawg"
+	"github.com/netbirdio/netbird/client/iface/hy2"
 	log "github.com/sirupsen/logrus"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -587,6 +589,11 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
 		log.Infof("Init empty amneziaWG config")
 	}
 
+	// Parse Hysteria2 transport config from environment variables
+	if engineConf.Hy2Config = parseHy2Config(); engineConf.Hy2Config != nil {
+		log.Infof("Hysteria2 transport enabled: server=%v", engineConf.Hy2Config.ServerEnabled)
+	}
+
 	if config.PreSharedKey != "" {
 		preSharedKey, err := wgtypes.ParseKey(config.PreSharedKey)
 		if err != nil {
@@ -710,4 +717,26 @@ func closeConnWithLog(conn *net.UDPConn) {
 	if time.Since(startClosing) > time.Second {
 		log.Warnf("closing the testing port %d took %s. Usually it is safe to ignore, but continuous warnings may indicate a problem.", conn.LocalAddr().(*net.UDPAddr).Port, time.Since(startClosing))
 	}
+}
+
+// parseHy2Config reads Hysteria2 transport configuration from environment variables.
+// Returns nil if Hy2 is not enabled.
+func parseHy2Config() *hy2.Config {
+	if os.Getenv("NETBIRD_HY2_SERVER_ENABLED") == "true" ||
+		os.Getenv("NETBIRD_HY2_ENABLED") == "true" ||
+		os.Getenv("HY2_ENABLED") == "true" {
+		return &hy2.Config{
+			ServerEnabled:    os.Getenv("NETBIRD_HY2_SERVER_ENABLED") == "true",
+			ServerListenAddr: getEnvDefault("NETBIRD_HY2_SERVER_LISTEN_ADDR", ":4433"),
+			MasqueradeSNI:    getEnvDefault("NETBIRD_HY2_MASQUERADE_SNI", "cloudflare.com"),
+		}
+	}
+	return nil
+}
+
+func getEnvDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
 }

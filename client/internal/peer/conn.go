@@ -50,7 +50,7 @@ type ServiceDependencies struct {
 	PeerConnDispatcher *dispatcher.ConnectionDispatcher
 	PortForwardManager *portforward.Manager
 	MetricsRecorder    MetricsRecorder
-\tHy2Manager *hy2.Manager
+	Hy2Manager *hy2.Manager
 }
 
 type WgConfig struct {
@@ -137,7 +137,7 @@ type Conn struct {
 
 	// Connection stage timestamps for metrics
 	metricsRecorder MetricsRecorder
-\thy2Manager *hy2.Manager
+	hy2Manager *hy2.Manager
 	metricsStages   *MetricsStages
 }
 
@@ -166,7 +166,7 @@ func NewConn(config ConnConfig, services ServiceDependencies) (*Conn, error) {
 		endpointUpdater:    NewEndpointUpdater(connLog, config.WgConfig, isController(config)),
 		wgWatcher:          NewWGWatcher(connLog, config.WgConfig.WgInterface, config.Key, dumpState),
 		metricsRecorder:    services.MetricsRecorder,
-\t	hy2Manager:     services.Hy2Manager,
+		hy2Manager:     services.Hy2Manager,
 	}
 
 	return conn, nil

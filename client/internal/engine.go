@@ -152,7 +152,7 @@ type EngineConfig struct {
 	TempDir string
 
 	AmneziaConfig amneziawg.AmneziaConfig
-\t// Hy2Config enables Hysteria2 transport (QUIC/HTTP3 masquerade)
+	// Hy2Config enables Hysteria2 transport (QUIC/HTTP3 masquerade)
 	Hy2Config *hy2.Config
 }
 // EngineServices holds the external service dependencies required by the Engine.
@@ -202,7 +202,7 @@ type Engine struct {
 	cancel context.CancelFunc
 
 	wgInterface WGIface
-\t// hy2Manager manages Hysteria2 tunnels for DPI-resistant transport
+	// hy2Manager manages Hysteria2 tunnels for DPI-resistant transport
 	hy2Manager  *hy2.Manager
 
 	udpMux *udpmux.UniversalUDPMuxDefault
@@ -1667,7 +1667,7 @@ func (e *Engine) createPeerConn(pubKey string, allowedIPs []netip.Prefix, agentV
 		SrWatcher:          e.srWatcher,
 		PortForwardManager: e.portForwardManager,
 		MetricsRecorder:    e.clientMetrics,
-\t	Hy2Manager:        e.hy2Manager,
+		Hy2Manager:        e.hy2Manager,
 	}
 	peerConn, err := peer.NewConn(config, serviceDependencies)
 	if err != nil {
