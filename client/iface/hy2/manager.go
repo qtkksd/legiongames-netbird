@@ -2,9 +2,7 @@ package hy2
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 	"net/netip"
 	"sync"
@@ -115,7 +113,7 @@ func (t *Hy2Tunnel) bridgeToWG(ctx context.Context, injector EndpointInjector, o
 	// Inbound: read from ICE conn, inject into WG via ReceiveFromEndpoint.
 	buf := make([]byte, 2048)
 	for {
-		n, err := readFrame(t.conn, buf)
+		n, err := readWGMessage(t.conn, buf)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -132,19 +130,26 @@ func (t *Hy2Tunnel) bridgeToWG(ctx context.Context, injector EndpointInjector, o
 	}
 }
 
-// readFrame reads a length-prefixed frame from the connection.
-// WireGuard packets vary in size; the 2-byte length prefix preserves
-// packet boundaries over the stream-oriented ICE connection.
-func readFrame(r io.Reader, buf []byte) (int, error) {
-	var lenBuf [2]byte
-	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
-		return 0, err
+// readWGMessage reads a complete WireGuard message from the ICE connection.
+// ICEBind.Send() may split a WG packet into two separate datagrams:
+// a 4-byte type header followed by the encrypted payload.
+// readWGMessage detects this pattern and reassembles the complete packet.
+func readWGMessage(conn net.Conn, buf []byte) (int, error) {
+	n, err := conn.Read(buf)
+	if err != nil || n == 0 {
+		return n, err
 	}
-	dataLen := binary.BigEndian.Uint16(lenBuf[:])
-	if int(dataLen) > len(buf) {
-		return 0, fmt.Errorf("frame too large: %d > %d", dataLen, len(buf))
+	// If we read exactly 4 bytes, this is the WG type header.
+	// Read the next datagram to get the payload.
+	if n == 4 {
+		n2, err := conn.Read(buf[n:])
+		if err != nil {
+			return n, err // return the header if payload read fails
+		}
+		return n + n2, nil
 	}
-	return io.ReadFull(r, buf[:dataLen])
+	// Single-datagram complete WG packet (from StdNetBind or unbatchd send).
+	return n, nil
 }
 
 func (t *Hy2Tunnel) Close() error {
