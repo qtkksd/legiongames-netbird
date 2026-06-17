@@ -57,15 +57,14 @@ type wgProxyFactory interface {
 }
 
 type WGIFaceOpts struct {
-	IFaceName     string
-	Address       wgaddr.Address
-	WGPort        int
-	WGPrivKey     string
-	MTU           uint16
-	MobileArgs    *device.MobileIFaceArguments
-	TransportNet  transport.Net
-	FilterFn      udpmux.FilterFn
-	DisableDNS    bool
+	IFaceName    string
+	Address      wgaddr.Address
+	WGPort       int
+	WGPrivKey    string
+	MTU          uint16
+	MobileArgs   *device.MobileIFaceArguments
+	TransportNet transport.Net
+	DisableDNS   bool
 	AmneziaConfig amneziawg.AmneziaConfig
 }
 

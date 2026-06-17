@@ -14,7 +14,7 @@ import (
 // NewWGIFace Creates a new WireGuard interface instance
 func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
 	if netstack.IsEnabled() {
-		iceBind := bind.NewICEBind(opts.TransportNet, opts.FilterFn, opts.Address, opts.MTU)
+		iceBind := bind.NewICEBind(opts.TransportNet, opts.Address, opts.MTU)
 		return &WGIface{
 			tun:            device.NewNetstackDevice(opts.IFaceName, opts.Address, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, netstack.ListenAddr(), opts.AmneziaConfig),
 			userspaceBind:  true,
@@ -29,7 +29,7 @@ func NewWGIFace(opts WGIFaceOpts) (*WGIface, error) {
 		}, nil
 	}
 	if device.ModuleTunIsLoaded() {
-		iceBind := bind.NewICEBind(opts.TransportNet, opts.FilterFn, opts.Address, opts.MTU)
+		iceBind := bind.NewICEBind(opts.TransportNet, opts.Address, opts.MTU)
 		return &WGIface{
 			tun:            device.NewTunDevice(opts.IFaceName, opts.Address, opts.WGPort, opts.WGPrivKey, opts.MTU, iceBind, opts.AmneziaConfig),
 			userspaceBind:  true,

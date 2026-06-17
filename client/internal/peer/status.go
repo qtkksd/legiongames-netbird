@@ -111,6 +111,7 @@ type LocalPeerState struct {
 	PubKey          string
 	KernelInterface bool
 	FQDN            string
+	WgPort          int
 	Routes          map[string]struct{}
 }
 
@@ -192,6 +193,7 @@ func (s *StatusChangeSubscription) Events() chan map[string]RouterState {
 type Status struct {
 	mux                   sync.RWMutex
 	peers                 map[string]State
+	ipToKey               map[string]string
 	changeNotify          map[string]map[string]*StatusChangeSubscription // map[peerID]map[subscriptionID]*StatusChangeSubscription
 	signalState           bool
 	signalError           error
@@ -230,6 +232,7 @@ type Status struct {
 func NewRecorder(mgmAddress string) *Status {
 	return &Status{
 		peers:                 make(map[string]State),
+		ipToKey:               make(map[string]string),
 		changeNotify:          make(map[string]map[string]*StatusChangeSubscription),
 		eventStreams:          make(map[string]chan *proto.SystemEvent),
 		eventQueue:            NewEventQueue(eventQueueSize),
@@ -281,6 +284,12 @@ func (d *Status) AddPeer(peerPubKey string, fqdn string, ip string, ipv6 string)
 		Mux:        new(sync.RWMutex),
 	}
 	d.peerListChangedForNotification = true
+	if ipv6 != "" {
+		d.ipToKey[ipv6] = peerPubKey
+	}
+	if ip != "" {
+		d.ipToKey[ip] = peerPubKey
+	}
 	return nil
 }
 
@@ -310,19 +319,22 @@ func (d *Status) PeerByIP(ip string) (string, bool) {
 
 // PeerStateByIP returns the full peer State for the given tunnel IP.
 // Matches against either the IPv4 (State.IP) or IPv6 (State.IPv6) tunnel
-// address so dual-stack peers are reachable on either family. Returns the
-// zero State and false when no peer matches or the input is empty.
+// address so dual-stack peers are reachable on either family. Only
+// active peers are matched; peers moved into the offline slice by
+// ReplaceOfflinePeers are intentionally treated as unknown.
 func (d *Status) PeerStateByIP(ip string) (State, bool) {
 	if ip == "" {
 		return State{}, false
 	}
 	d.mux.RLock()
 	defer d.mux.RUnlock()
-
-	for _, state := range d.peers {
-		if (state.IP != "" && state.IP == ip) || (state.IPv6 != "" && state.IPv6 == ip) {
-			return state, true
-		}
+	key, ok := d.ipToKey[ip]
+	if !ok {
+		return State{}, false
+	}
+	state, ok := d.peers[key]
+	if ok {
+		return state, true
 	}
 	return State{}, false
 }
@@ -332,12 +344,18 @@ func (d *Status) RemovePeer(peerPubKey string) error {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
-	_, ok := d.peers[peerPubKey]
+	p, ok := d.peers[peerPubKey]
 	if !ok {
 		return errors.New("no peer with to remove")
 	}
 
 	delete(d.peers, peerPubKey)
+	if mappedKey, exists := d.ipToKey[p.IP]; exists && mappedKey == peerPubKey {
+		delete(d.ipToKey, p.IP)
+	}
+	if mappedKey, exists := d.ipToKey[p.IPv6]; exists && mappedKey == peerPubKey {
+		delete(d.ipToKey, p.IPv6)
+	}
 	d.peerListChangedForNotification = true
 	return nil
 }
@@ -1348,6 +1366,7 @@ func (fs FullStatus) ToProto() *proto.FullStatus {
 	pbFullStatus.LocalPeerState.PubKey = fs.LocalPeerState.PubKey
 	pbFullStatus.LocalPeerState.KernelInterface = fs.LocalPeerState.KernelInterface
 	pbFullStatus.LocalPeerState.Fqdn = fs.LocalPeerState.FQDN
+	pbFullStatus.LocalPeerState.WgPort = int32(fs.LocalPeerState.WgPort)
 	pbFullStatus.LocalPeerState.RosenpassPermissive = fs.RosenpassState.Permissive
 	pbFullStatus.LocalPeerState.RosenpassEnabled = fs.RosenpassState.Enabled
 	pbFullStatus.NumberOfForwardingRules = int32(fs.NumOfForwardingRules)
