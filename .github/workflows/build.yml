@@ -302,7 +302,7 @@ jobs:
           APPVER: ${{ steps.semver_parser.outputs.major }}.${{ steps.semver_parser.outputs.minor }}.${{ steps.semver_parser.outputs.patch }}.${{ github.run_id }}
 
       - name: Rename NSIS installer
-        run: mv netbird-installer.exe netbird_installer_test_windows_${{ matrix.arch }}.exe
+        run: mv netbird-installer.exe netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe
 
       - name: Install WiX
         run: |
@@ -312,16 +312,16 @@ jobs:
       - name: Build MSI installer
         env:
           NETBIRD_VERSION: "${{ steps.semver_parser.outputs.fullversion }}"
-        run: wix build -arch ${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -ext WixToolset.Util.wixext -o netbird_installer_test_windows_${{ matrix.arch }}.msi .\client\netbird.wxs -d ProcessorArchitecture=${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -d ArchSuffix=${{ matrix.arch }}
+        run: wix build -arch ${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -ext WixToolset.Util.wixext -o netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi .\client\netbird.wxs -d ProcessorArchitecture=${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -d ArchSuffix=${{ matrix.arch }}
 
       - name: Upload installer artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer-test-${{ matrix.arch }}
+          name: windows-installer-${{ steps.semver_parser.outputs.fullversion }}-${{ matrix.arch }}
           path: |
-            netbird_installer_test_windows_${{ matrix.arch }}.exe
-            netbird_installer_test_windows_${{ matrix.arch }}.msi
+            netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe
+            netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi
           retention-days: 3
 
       - name: Upload installers to release
@@ -329,6 +329,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} netbird_installer_test_windows_${{ matrix.arch }}.exe --clobber
-          gh release upload ${{ github.ref_name }} netbird_installer_test_windows_${{ matrix.arch }}.msi --clobber
+          gh release upload ${{ github.ref_name }} netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe --clobber
+          gh release upload ${{ github.ref_name }} netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi --clobber
 
