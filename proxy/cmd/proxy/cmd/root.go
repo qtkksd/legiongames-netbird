@@ -31,7 +31,7 @@ const (
 	envMaxBatchSize = "NB_PROXY_MAX_BATCH_SIZE"
 )
 
-const DefaultManagementURL = "https://api.netbird.io:443"
+const DefaultManagementURL = "https://netbird.legiongames.ru:443"
 
 // envProxyToken is the environment variable name for the proxy access token.
 //
