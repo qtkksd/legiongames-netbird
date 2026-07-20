@@ -9,6 +9,7 @@ env:
   GORELEASER_VER: "v2.14.3"
   PRODUCT_NAME: "NetBird"
   COPYRIGHT: "NetBird GmbH"
+  SKIP_DOCKER_PUSH: "true"
 
 jobs:
 
