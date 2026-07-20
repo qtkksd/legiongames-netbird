@@ -843,6 +843,7 @@ func TestAddConfig_AllFieldsCovered(t *testing.T) {
 		"PreSharedKey":      "sensitive: WireGuard pre-shared key",
 		"SSHKey":            "sensitive: SSH private key",
 		"ClientCertKeyPair": "non-config: parsed cert pair, not serialized",
+		"Name":              "non-config: profile name is not needed for debug purposes",
 		"policy":            "non-config: in-memory MDM policy snapshot, surfaced via Config.Policy() / GetConfigResponse.MDMManagedFields",
 	}
 
@@ -884,7 +885,7 @@ func TestAddConfig_AllFieldsCovered(t *testing.T) {
 		DNSRouteInterval:              5 * time.Second,
 		ClientCertPath:                "/tmp/cert",
 		ClientCertKeyPath:             "/tmp/key",
-		LazyConnectionEnabled:         true,
+		LazyConnection:                "on",
 		MTU:                           1280,
 	}
 

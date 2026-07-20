@@ -116,6 +116,24 @@ func (c *Controller) OnPeerDisconnected(ctx context.Context, accountID string, p
 	c.EphemeralPeersManager.OnPeerDisconnected(ctx, peer)
 }
 
+// injectAllProxyPolicies prepares an account for the per-peer network-map
+// computation. It prepends the in-memory agent-network services synthesised
+// from the account's current provider/policy state to account.Services so
+// the existing InjectProxyPolicies + injectPrivateServicePolicies walks pick
+// them up alongside persisted reverse-proxy services. Synthesised services
+// are never persisted; the account is loaded fresh per cycle so re-prepending
+// is safe and idempotent. Accounts without agent-network providers get an
+// empty synth slice — no behaviour change.
+func (c *Controller) injectAllProxyPolicies(ctx context.Context, account *types.Account) {
+	synth, err := c.repo.SynthesizeAgentNetworkServices(ctx, account.Id)
+	if err != nil {
+		log.WithContext(ctx).Warnf("synthesise agent-network services for account %s: %v", account.Id, err)
+	} else if len(synth) > 0 {
+		account.Services = append(synth, account.Services...)
+	}
+	account.InjectProxyPolicies(ctx)
+}
+
 func (c *Controller) CountStreams() int {
 	return c.peersUpdateManager.CountStreams()
 }
@@ -150,7 +168,7 @@ func (c *Controller) sendUpdateAccountPeers(ctx context.Context, accountID strin
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, 10)
 
-	account.InjectProxyPolicies(ctx)
+	c.injectAllProxyPolicies(ctx, account)
 	dnsCache := &cache.DNSConfigCache{}
 	dnsDomain := c.GetDNSDomain(account.Settings)
 	peersCustomZone := account.GetPeersCustomZone(ctx, dnsDomain)
@@ -281,7 +299,15 @@ func (c *Controller) sendUpdateForAffectedPeers(ctx context.Context, accountID s
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, 10)
 
-	account.InjectProxyPolicies(ctx)
+	// The affected-peer path MUST mirror sendUpdateAccountPeers (line 171)
+	// here: injectAllProxyPolicies prepends the synthesised agent-network
+	// services BEFORE InjectProxyPolicies + private-service policies run.
+	// Previously this path called only account.InjectProxyPolicies, which
+	// skipped the synth-services prepend — so peer-level changes
+	// (proxy restart, embedded peer connect/disconnect) propagated a
+	// network map that omitted the synth DNS zone, and the agent kept
+	// resolving against the stale or absent record.
+	c.injectAllProxyPolicies(ctx, account)
 	dnsCache := &cache.DNSConfigCache{}
 	dnsDomain := c.GetDNSDomain(account.Settings)
 	peersCustomZone := account.GetPeersCustomZone(ctx, dnsDomain)
@@ -399,7 +425,7 @@ func (c *Controller) UpdateAccountPeer(ctx context.Context, accountId string, pe
 		return fmt.Errorf("failed to get validated peers: %v", err)
 	}
 
-	account.InjectProxyPolicies(ctx)
+	c.injectAllProxyPolicies(ctx, account)
 	dnsCache := &cache.DNSConfigCache{}
 	dnsDomain := c.GetDNSDomain(account.Settings)
 	peersCustomZone := account.GetPeersCustomZone(ctx, dnsDomain)
@@ -497,7 +523,7 @@ func (c *Controller) BufferUpdateAffectedPeers(ctx context.Context, accountID st
 		c.accountManagerMetrics.CountUpdateAccountPeersTriggered(string(reason.Resource), string(reason.Operation))
 	}
 
-	log.WithContext(ctx).Tracef("buffer updating %d affected peers for account %s from %s", len(peerIDs), accountID, util.GetCallerName())
+	log.WithContext(ctx).Tracef("buffer updating %d affected peers for account %s from %s with reason %s/%s", len(peerIDs), accountID, util.GetCallerName(), reason.Operation, reason.Resource)
 
 	bufUpd, _ := c.affectedPeerUpdateLocks.LoadOrStore(accountID, &bufferAffectedUpdate{
 		peerIDs: make(map[string]struct{}),
@@ -585,66 +611,64 @@ func (b *bufferAffectedUpdate) setTimer(d time.Duration, f func()) {
 	b.next.Reset(d)
 }
 
-func (c *Controller) GetValidatedPeerWithMap(ctx context.Context, isRequiresApproval bool, accountID string, peer *nbpeer.Peer) (*nbpeer.Peer, *types.NetworkMap, []*posture.Checks, int64, error) {
+func (c *Controller) GetValidatedPeerWithMap(ctx context.Context, isRequiresApproval bool, accountID string, peerID string) (*types.NetworkMap, []*posture.Checks, int64, error) {
 	if isRequiresApproval {
 		network, err := c.repo.GetAccountNetwork(ctx, accountID)
 		if err != nil {
-			return nil, nil, nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		emptyMap := &types.NetworkMap{
 			Network: network.Copy(),
 		}
-		return peer, emptyMap, nil, 0, nil
+		return emptyMap, nil, 0, nil
 	}
 
 	account, err := c.requestBuffer.GetAccountWithBackpressure(ctx, accountID)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, 0, err
 	}
 
-	account.InjectProxyPolicies(ctx)
+	c.injectAllProxyPolicies(ctx, account)
 
 	approvedPeersMap, err := c.integratedPeerValidator.GetValidatedPeers(ctx, account.Id, maps.Values(account.Groups), maps.Values(account.Peers), account.Settings.Extra)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, 0, err
 	}
 
-	startPosture := time.Now()
-	postureChecks, err := c.getPeerPostureChecks(account, peer.ID)
+	postureChecks, err := c.getPeerPostureChecks(account, peerID)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, 0, err
 	}
-	log.WithContext(ctx).Debugf("getPeerPostureChecks took %s", time.Since(startPosture))
 
 	accountZones, err := c.repo.GetAccountZones(ctx, account.Id)
 	if err != nil {
 		log.WithContext(ctx).Errorf("failed to get account zones: %v", err)
-		return nil, nil, nil, 0, err
+		return nil, nil, 0, err
 	}
 
 	dnsDomain := c.GetDNSDomain(account.Settings)
 	peersCustomZone := account.GetPeersCustomZone(ctx, dnsDomain)
 
-	proxyNetworkMaps, err := c.proxyController.GetProxyNetworkMaps(ctx, account.Id, peer.ID, account.Peers)
+	proxyNetworkMaps, err := c.proxyController.GetProxyNetworkMaps(ctx, account.Id, peerID, account.Peers)
 	if err != nil {
 		log.WithContext(ctx).Errorf("failed to get proxy network maps: %v", err)
-		return nil, nil, nil, 0, err
+		return nil, nil, 0, err
 	}
 
 	resourcePolicies := account.GetResourcePoliciesMap()
 	routers := account.GetResourceRoutersMap()
 	groupIDToUserIDs := account.GetActiveGroupUsers()
-	networkMap := account.GetPeerNetworkMapFromComponents(ctx, peer.ID, peersCustomZone, accountZones, approvedPeersMap, resourcePolicies, routers, c.accountManagerMetrics, groupIDToUserIDs)
+	networkMap := account.GetPeerNetworkMapFromComponents(ctx, peerID, peersCustomZone, accountZones, approvedPeersMap, resourcePolicies, routers, c.accountManagerMetrics, groupIDToUserIDs)
 
-	proxyNetworkMap, ok := proxyNetworkMaps[peer.ID]
+	proxyNetworkMap, ok := proxyNetworkMaps[peerID]
 	if ok {
 		networkMap.Merge(proxyNetworkMap)
 	}
 
 	dnsFwdPort := computeForwarderPort(maps.Values(account.Peers), network_map.DnsForwarderPortMinVersion)
 
-	return peer, networkMap, postureChecks, dnsFwdPort, nil
+	return networkMap, postureChecks, dnsFwdPort, nil
 }
 
 // GetDNSDomain returns the configured dnsDomain
@@ -876,7 +900,7 @@ func (c *Controller) GetNetworkMap(ctx context.Context, peerID string) (*types.N
 		return nil, err
 	}
 
-	account.InjectProxyPolicies(ctx)
+	c.injectAllProxyPolicies(ctx, account)
 	resourcePolicies := account.GetResourcePoliciesMap()
 	routers := account.GetResourceRoutersMap()
 	groupIDToUserIDs := account.GetActiveGroupUsers()
