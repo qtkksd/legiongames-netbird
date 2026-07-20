@@ -301,6 +301,13 @@ jobs:
         if: matrix.arch == 'amd64'
         run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/ShellExecAsUser_amd64-Unicode.7z"
 
+      - name: Download WebView2 runtime bootstrapper
+        uses: carlosperate/download-file-action@v2
+        with:
+          file-url: https://go.microsoft.com/fwlink/p/?LinkId=2124703
+          file-name: MicrosoftEdgeWebview2Setup.exe
+          location: client/
+
       - name: Build NSIS installer
         uses: joncloud/makensis-action@v3.3
         with:
