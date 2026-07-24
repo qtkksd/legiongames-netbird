@@ -1,0 +1,20 @@
+diff --git a/.devcontainer/devcontainer.json b/.devcontainer/devcontainer.json
+index 97aad75ad..86cb8e9a3 100644
+--- a/.devcontainer/devcontainer.json
++++ b/.devcontainer/devcontainer.json
+@@ -7,7 +7,7 @@
+ 	"features": {
+ 		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+ 		"ghcr.io/devcontainers/features/go:1": {
+-			"version": "1.23"
++          "version": "1.24.4"
+ 		}
+ 	},
+ 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+@@ -17,4 +17,4 @@
+ 		"SYS_RESOURCE"
+ 	],
+ 	"privileged": true
+-}
+\ No newline at end of file
++}

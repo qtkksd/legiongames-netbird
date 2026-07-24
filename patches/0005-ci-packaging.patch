@@ -1,0 +1,617 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+new file mode 100644
+index 000000000..3066d3c11
+--- /dev/null
++++ b/.github/workflows/build.yml
+@@ -0,0 +1,350 @@
++name: Build (LegionGames)
++
++on:
++  push:
++    tags: ["v*"]
++  workflow_dispatch:
++
++env:
++  GORELEASER_VER: "v2.14.3"
++  PRODUCT_NAME: "NetBird"
++  COPYRIGHT: "NetBird GmbH"
++  SKIP_DOCKER_PUSH: "true"
++
++jobs:
++
++  release:
++    runs-on: ubuntu-latest
++    outputs:
++      release_artifact_url: ${{ steps.upload_release.outputs.artifact-url }}
++      linux_packages_artifact_url: ${{ steps.upload_linux_packages.outputs.artifact-url }}
++      windows_packages_artifact_url: ${{ steps.upload_windows_packages.outputs.artifact-url }}
++      macos_packages_artifact_url: ${{ steps.upload_macos_packages.outputs.artifact-url }}
++    env:
++      flags: ""
++    steps:
++      - name: Parse semver string
++        id: semver_parser
++        uses: booxmedialtd/ws-action-parse-semver@v1
++        with:
++          input_string: ${{ (startsWith(github.ref, 'refs/tags/v') && github.ref) || 'refs/tags/v0.0.0' }}
++          version_extractor_regex: '\/v(.*)$'
++
++      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
++        run: echo "flags=--snapshot" >> $GITHUB_ENV
++      - name: Checkout
++        uses: actions/checkout@v4
++        with:
++          fetch-depth: 0 # It is required for GoReleaser to work properly
++      - name: Set up Go
++        uses: actions/setup-go@v5
++        with:
++          go-version-file: "go.mod"
++          cache: false
++      - name: Cache Go modules
++        uses: actions/cache@v4
++        with:
++          path: |
++            ~/go/pkg/mod
++            ~/.cache/go-build
++          key: ${{ runner.os }}-go-releaser-${{ hashFiles('**/go.sum') }}
++          restore-keys: |
++            ${{ runner.os }}-go-releaser-
++      - name: Install modules
++        run: go mod tidy
++      - name: check git status
++        run: git --no-pager diff --exit-code
++      - name: Install OS build dependencies
++        run: sudo apt update && sudo apt install -y -q gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
++      - name: Set up QEMU
++        uses: docker/setup-qemu-action@v3
++      - name: Set up Docker Buildx
++        uses: docker/setup-buildx-action@v3
++
++      - name: Install goversioninfo
++        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@233067e
++      - name: Generate windows syso amd64
++        run: goversioninfo  -icon client/ui/build/windows/icon.ico -manifest client/manifest.xml -product-name ${{ env.PRODUCT_NAME }} -copyright "${{ env.COPYRIGHT }}" -ver-major ${{ steps.semver_parser.outputs.major }} -ver-minor ${{ steps.semver_parser.outputs.minor }} -ver-patch ${{ steps.semver_parser.outputs.patch }} -ver-build 0 -file-version ${{ steps.semver_parser.outputs.fullversion }}.0 -product-version ${{ steps.semver_parser.outputs.fullversion }}.0 -o client/resources_windows_amd64.syso
++      - name: Generate windows syso arm64
++        run: goversioninfo -arm -64 -icon client/ui/build/windows/icon.ico -manifest client/manifest.xml -product-name ${{ env.PRODUCT_NAME }} -copyright "${{ env.COPYRIGHT }}" -ver-major ${{ steps.semver_parser.outputs.major }} -ver-minor ${{ steps.semver_parser.outputs.minor }} -ver-patch ${{ steps.semver_parser.outputs.patch }} -ver-build 0 -file-version ${{ steps.semver_parser.outputs.fullversion }}.0 -product-version ${{ steps.semver_parser.outputs.fullversion }}.0 -o client/resources_windows_arm64.syso
++      - name: Run GoReleaser
++        id: goreleaser
++        uses: goreleaser/goreleaser-action@v4
++        with:
++          version: ${{ env.GORELEASER_VER }}
++          args: release --clean ${{ env.flags }}
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++      - name: upload non tags for debug purposes
++        id: upload_release
++        uses: actions/upload-artifact@v4
++        with:
++          name: release
++          path: dist/
++          retention-days: 7
++      - name: upload linux packages
++        id: upload_linux_packages
++        uses: actions/upload-artifact@v4
++        with:
++          name: linux-packages
++          path: dist/netbird_linux**
++          retention-days: 7
++      - name: upload windows packages
++        id: upload_windows_packages
++        uses: actions/upload-artifact@v4
++        with:
++          name: windows-packages
++          path: dist/netbird_windows**
++          retention-days: 7
++      - name: upload macos packages
++        id: upload_macos_packages
++        uses: actions/upload-artifact@v4
++        with:
++          name: macos-packages
++          path: dist/netbird_darwin**
++          retention-days: 7
++
++      - name: upload linux debian packages
++        uses: actions/upload-artifact@v4
++        with:
++          name: linux-deb-packages
++          path: dist/netbird_*_linux_amd64.deb
++          retention-days: 7
++
++  release_ui:
++    runs-on: ubuntu-latest
++    outputs:
++      release_ui_artifact_url: ${{ steps.upload_release_ui.outputs.artifact-url }}
++    steps:
++      - name: Parse semver string
++        id: semver_parser
++        uses: booxmedialtd/ws-action-parse-semver@v1
++        with:
++          input_string: ${{ (startsWith(github.ref, 'refs/tags/v') && github.ref) || 'refs/tags/v0.0.0' }}
++          version_extractor_regex: '\/v(.*)$'
++
++      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
++        run: echo "flags=--snapshot" >> $GITHUB_ENV
++      - name: Checkout
++        uses: actions/checkout@v4
++        with:
++          fetch-depth: 0 # It is required for GoReleaser to work properly
++
++      - name: Set up Go
++        uses: actions/setup-go@v5
++        with:
++          go-version-file: "go.mod"
++          cache: false
++      - name: Cache Go modules
++        uses: actions/cache@v4
++        with:
++          path: |
++            ~/go/pkg/mod
++            ~/.cache/go-build
++          key: ${{ runner.os }}-ui-go-releaser-${{ hashFiles('**/go.sum') }}
++          restore-keys: |
++            ${{ runner.os }}-ui-go-releaser-
++
++      - name: Install modules
++        run: go mod tidy
++
++      - name: check git status
++        run: git --no-pager diff --exit-code
++
++      - name: Install dependencies
++        run: sudo apt update && sudo apt install -y -q libgtk-4-dev libwebkitgtk-6.0-dev gcc-mingw-w64-x86-64
++
++      - name: Install LLVM-MinGW for ARM64 cross-compilation
++        run: |
++          cd /tmp
++          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20250709/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
++          echo "60cafae6474c7411174cff1d4ba21a8e46cadbaeb05a1bace306add301628337  llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz" | sha256sum -c
++          tar -xf llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
++          echo "/tmp/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
++      - name: Install goversioninfo
++        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@233067e
++      - name: Install wails3
++        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
++      - name: Install pnpm
++        run: npm install -g pnpm
++      - name: Generate windows syso amd64
++        run: goversioninfo -64 -icon client/ui/build/windows/icon.ico -manifest client/ui/build/windows/wails.exe.manifest -product-name ${{ env.PRODUCT_NAME }}-"UI" -copyright "${{ env.COPYRIGHT }}" -ver-major ${{ steps.semver_parser.outputs.major }} -ver-minor ${{ steps.semver_parser.outputs.minor }} -ver-patch ${{ steps.semver_parser.outputs.patch }} -ver-build 0 -file-version ${{ steps.semver_parser.outputs.fullversion }}.0 -product-version ${{ steps.semver_parser.outputs.fullversion }}.0 -o client/ui/resources_windows_amd64.syso
++      - name: Generate windows syso arm64
++        run: goversioninfo -arm -64 -icon client/ui/build/windows/icon.ico -manifest client/ui/build/windows/wails.exe.manifest -product-name ${{ env.PRODUCT_NAME }}-"UI" -copyright "${{ env.COPYRIGHT }}" -ver-major ${{ steps.semver_parser.outputs.major }} -ver-minor ${{ steps.semver_parser.outputs.minor }} -ver-patch ${{ steps.semver_parser.outputs.patch }} -ver-build 0 -file-version ${{ steps.semver_parser.outputs.fullversion }}.0 -product-version ${{ steps.semver_parser.outputs.fullversion }}.0 -o client/ui/resources_windows_arm64.syso
++
++      - name: Run GoReleaser
++        uses: goreleaser/goreleaser-action@v4
++        with:
++          version: ${{ env.GORELEASER_VER }}
++          args: release --config .goreleaser_ui.yaml --clean ${{ env.flags }}
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++
++      - name: upload non tags for debug purposes
++        id: upload_release_ui
++        uses: actions/upload-artifact@v4
++        with:
++          name: release-ui
++          path: dist/
++          retention-days: 3
++
++  test_windows_installer:
++    name: "Windows Installer / Build Test"
++    runs-on: windows-2022
++    needs: [release, release_ui]
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - arch: amd64
++            wintun_arch: amd64
++          - arch: arm64
++            wintun_arch: arm64
++    defaults:
++      run:
++        shell: powershell
++    env:
++      PackageWorkdir: netbird_windows_${{ matrix.arch }}
++      downloadPath: '${{ github.workspace }}\temp'
++    steps:
++      - name: Parse semver string
++        id: semver_parser
++        uses: booxmedialtd/ws-action-parse-semver@v1
++        with:
++          input_string: ${{ (startsWith(github.ref, 'refs/tags/v') && github.ref) || 'refs/tags/v0.0.0' }}
++          version_extractor_regex: '\/v(.*)$'
++
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Add 7-Zip to PATH
++        run: echo "C:\Program Files\7-Zip" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
++
++      - name: Download release artifacts
++        uses: actions/download-artifact@v4
++        with:
++          name: release
++          path: release
++
++      - name: Download UI release artifacts
++        uses: actions/download-artifact@v4
++        with:
++          name: release-ui
++          path: release-ui
++
++      - name: Stage binaries into dist
++        run: |
++          $workdir = "dist\${{ env.PackageWorkdir }}"
++          New-Item -ItemType Directory -Force -Path $workdir | Out-Null
++          $client = Get-ChildItem -Recurse -Path release -Filter "netbird_*_windows_${{ matrix.arch }}.tar.gz" | Select-Object -First 1
++          $ui = Get-ChildItem -Recurse -Path release-ui -Filter "netbird-ui-windows_*_windows_${{ matrix.arch }}.tar.gz" | Select-Object -First 1
++          if (-not $client) { Write-Host "::error::client tarball not found for ${{ matrix.arch }}"; exit 1 }
++          if (-not $ui) { Write-Host "::error::ui tarball not found for ${{ matrix.arch }}"; exit 1 }
++          Write-Host "Client: $($client.FullName)"
++          Write-Host "UI:     $($ui.FullName)"
++          tar -zvxf $client.FullName -C $workdir
++          tar -zvxf $ui.FullName -C $workdir
++          Get-ChildItem $workdir
++
++      - name: Download wintun
++        uses: carlosperate/download-file-action@v2
++        id: download-wintun
++        with:
++          file-url: https://pkgs.netbird.io/wintun/wintun-0.14.1.zip
++          file-name: wintun.zip
++          location: ${{ env.downloadPath }}
++          sha256: '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51'
++
++      - name: Decompress wintun files
++        run: tar -zvxf "${{ steps.download-wintun.outputs.file-path }}" -C ${{ env.downloadPath }}
++
++      - name: Move wintun.dll into dist
++        run: mv ${{ env.downloadPath }}\wintun\bin\${{ matrix.wintun_arch }}\wintun.dll ${{ github.workspace }}\dist\${{ env.PackageWorkdir }}\
++
++      - name: Download Mesa3D (amd64 only)
++        uses: carlosperate/download-file-action@v2
++        id: download-mesa3d
++        if: matrix.arch == 'amd64'
++        with:
++          file-url: https://downloads.fdossena.com/Projects/Mesa3D/Builds/MesaForWindows-x64-20.1.8.7z
++          file-name: mesa3d.7z
++          location: ${{ env.downloadPath }}
++          sha256: '71c7cb64ec229a1d6b8d62fa08e1889ed2bd17c0eeede8689daf0f25cb31d6b9'
++
++      - name: Extract Mesa3D driver (amd64 only)
++        if: matrix.arch == 'amd64'
++        run: 7z x -o"${{ env.downloadPath }}" "${{ env.downloadPath }}/mesa3d.7z"
++
++      - name: Move opengl32.dll into dist (amd64 only)
++        if: matrix.arch == 'amd64'
++        run: mv ${{ env.downloadPath }}\opengl32.dll ${{ github.workspace }}\dist\${{ env.PackageWorkdir }}\
++
++      - name: Download EnVar plugin for NSIS
++        uses: carlosperate/download-file-action@v2
++        with:
++          file-url: https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip
++          file-name: envar_plugin.zip
++          location: ${{ github.workspace }}
++
++      - name: Extract EnVar plugin
++        run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/envar_plugin.zip"
++
++      - name: Download ShellExecAsUser plugin for NSIS (amd64 only)
++        uses: carlosperate/download-file-action@v2
++        if: matrix.arch == 'amd64'
++        with:
++          file-url: https://nsis.sourceforge.io/mediawiki/images/6/68/ShellExecAsUser_amd64-Unicode.7z
++          file-name: ShellExecAsUser_amd64-Unicode.7z
++          location: ${{ github.workspace }}
++
++      - name: Extract ShellExecAsUser plugin (amd64 only)
++        if: matrix.arch == 'amd64'
++        run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/ShellExecAsUser_amd64-Unicode.7z"
++
++      - name: Download WebView2 runtime bootstrapper
++        uses: carlosperate/download-file-action@v2
++        with:
++          file-url: https://go.microsoft.com/fwlink/p/?LinkId=2124703
++          file-name: MicrosoftEdgeWebview2Setup.exe
++          location: client/
++
++      - name: Build NSIS installer
++        uses: joncloud/makensis-action@v3.3
++        with:
++          additional-plugin-paths: ${{ github.workspace }}/NSIS_Plugins/Plugins
++          script-file: client/installer.nsis
++          arguments: "/V4 /DARCH=${{ matrix.arch }}"
++        env:
++          APPVER: ${{ steps.semver_parser.outputs.major }}.${{ steps.semver_parser.outputs.minor }}.${{ steps.semver_parser.outputs.patch }}.${{ github.run_id }}
++
++      - name: Rename NSIS installer
++        run: mv netbird-installer.exe netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe
++
++      - name: Install WiX
++        run: |
++          dotnet tool install --global wix --version 6.0.2
++          wix extension add WixToolset.Util.wixext/6.0.2
++
++      - name: Build MSI installer
++        env:
++          NETBIRD_VERSION: "${{ steps.semver_parser.outputs.fullversion }}"
++        run: wix build -arch ${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -ext WixToolset.Util.wixext -o netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi .\client\netbird.wxs -d ProcessorArchitecture=${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }} -d ArchSuffix=${{ matrix.arch }}
++
++      - name: Upload installer artifacts
++        if: always()
++        uses: actions/upload-artifact@v4
++        with:
++          name: windows-installer-${{ steps.semver_parser.outputs.fullversion }}-${{ matrix.arch }}
++          path: |
++            netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe
++            netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi
++          retention-days: 3
++
++      - name: Upload installers to release
++        if: startsWith(github.ref, 'refs/tags/v')
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: |
++          gh release upload ${{ github.ref_name }} netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.exe --clobber
++          gh release upload ${{ github.ref_name }} netbird_installer_${{ steps.semver_parser.outputs.fullversion }}_windows_${{ matrix.arch }}.msi --clobber
++
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml.disabled
+similarity index 100%
+rename from .github/workflows/release.yml
+rename to .github/workflows/release.yml.disabled
+diff --git a/.github/workflows/sync-upstream.yml b/.github/workflows/sync-upstream.yml
+new file mode 100644
+index 000000000..97c2ffa67
+--- /dev/null
++++ b/.github/workflows/sync-upstream.yml
+@@ -0,0 +1,144 @@
++name: Sync Upstream
++
++on:
++  push:
++    branches: [amneziawg]
++
++permissions:
++  contents: write
++
++env:
++  GH_TOKEN: ${{ secrets.PAT_TOKEN }}
++
++jobs:
++  check-upstream:
++    runs-on: ubuntu-latest
++    outputs:
++      has_new_commits: ${{ steps.check.outputs.has_new_commits }}
++      sync_date: ${{ steps.check.outputs.sync_date }}
++      commit_summary: ${{ steps.check.outputs.commit_summary }}
++    steps:
++      - name: Checkout amneziawg branch
++        uses: actions/checkout@v4
++        with:
++          ref: amneziawg
++          fetch-depth: 0
++          token: ${{ secrets.PAT_TOKEN }}
++
++      - name: Check for new upstream commits
++        id: check
++        run: |
++          git remote add upstream https://github.com/netbirdio/netbird.git
++          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/qtkksd/netbird-amneziawg.git
++          git fetch upstream main
++          NEW=$(git log origin/amneziawg..upstream/main --oneline)
++          if [ -z "$NEW" ]; then
++            echo "No new upstream commits. Workflow will stop here."
++            echo "has_new_commits=false" >> $GITHUB_OUTPUT
++            exit 0
++          fi
++          echo "has_new_commits=true" >> $GITHUB_OUTPUT
++          echo "sync_date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
++          COMMIT_COUNT=$(echo "$NEW" | wc -l)
++          COMMIT_LIST=$(echo "$NEW" | head -20)
++          echo "Found $COMMIT_COUNT new commits:"
++          echo "$COMMIT_LIST"
++          COMMIT_ESCAPED=$(echo "$NEW" | sed 's/"/\\"/g' | head -20 | awk '{printf "- %s\\n", $0}')
++          echo "commit_summary<<SUMMARY" >> $GITHUB_OUTPUT
++          echo "$COMMIT_ESCAPED" >> $GITHUB_OUTPUT
++          echo "SUMMARY" >> $GITHUB_OUTPUT
++
++  sync-and-verify:
++    needs: check-upstream
++    if: needs.check-upstream.outputs.has_new_commits == 'true'
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    steps:
++      - name: Checkout amneziawg branch
++        uses: actions/checkout@v4
++        with:
++          ref: amneziawg
++          fetch-depth: 0
++          token: ${{ secrets.PAT_TOKEN }}
++
++      - name: Set up Git
++        run: |
++          git config user.name "github-actions[bot]"
++          git config user.email "github-actions[bot]@users.noreply.github.com"
++          git remote add upstream https://github.com/netbirdio/netbird.git
++          git remote set-url origin https://${{ secrets.PAT_TOKEN }}@github.com/qtkksd/netbird-amneziawg.git
++          git fetch upstream main
++
++      - name: Create sync branch
++        run: |
++          cp -r patches /tmp/patches
++          git checkout -b sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }} upstream/main
++
++      - name: Apply patches
++        id: apply
++        run: |
++          FAIL=no
++          for patch in /tmp/patches/*.patch; do
++            if [ ! -f "$patch" ]; then continue; fi
++            echo "Applying: $patch"
++            if ! git apply --check "$patch" 2>/dev/null; then
++              echo "CONFLICT: $patch"
++              git apply --reject "$patch" 2>/dev/null || true
++              FAIL=yes
++              break
++            fi
++            git apply "$patch"
++            git commit -m "Apply: $(basename $patch)"
++          done
++          echo "failed=$FAIL" >> $GITHUB_OUTPUT
++
++      - name: Setup Go
++        if: steps.apply.outputs.failed == 'no'
++        uses: actions/setup-go@v5
++        with:
++          go-version: "1.26"
++
++      - name: Run go mod tidy
++        if: steps.apply.outputs.failed == 'no'
++        run: go mod tidy && (git diff --quiet go.mod go.sum || git commit -am "go mod tidy")
++
++      - name: Build verification
++        if: steps.apply.outputs.failed == 'no'
++        run: |
++          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./client/main.go
++          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build ./client/main.go
++          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./client/main.go
++
++      - name: Push sync branch
++        if: steps.apply.outputs.failed == 'no'
++        run: |
++          git push origin sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }} --force
++
++  create-pr:
++    needs: [check-upstream, sync-and-verify]
++    if: needs.sync-and-verify.result == 'success'
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    steps:
++      - name: Checkout amneziawg branch
++        uses: actions/checkout@v4
++        with:
++          ref: amneziawg
++          fetch-depth: 0
++          token: ${{ secrets.PAT_TOKEN }}
++
++      - name: Install GitHub CLI
++        run: |
++
++      - name: Create or update PR
++        run: |
++          BRANCH="sync-amneziawg-${{ needs.check-upstream.outputs.sync_date }}"
++
++          EXISTING=$(gh pr list  --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
++
++          if [ -n "$EXISTING" ]; then
++            echo "PR #$EXISTING already exists for $BRANCH, skipping creation"
++          else
++            gh pr create --base amneziawg --head "$BRANCH" --title "Sync upstream - ${{ needs.check-upstream.outputs.sync_date }}" --body "Auto sync from netbirdio/netbird upstream.\\n\\n## New upstream commits:\\n\\n$COMMIT_SUMMARY"
++
++          fi
+diff --git a/.goreleaser.yaml b/.goreleaser.yaml
+index 0753b1012..2457a5bc5 100644
+--- a/.goreleaser.yaml
++++ b/.goreleaser.yaml
+@@ -4,18 +4,6 @@ env:
+   - SKIP_DOCKER_PUSH={{ if index .Env "SKIP_DOCKER_PUSH" }}{{ .Env.SKIP_DOCKER_PUSH }}{{ else }}false{{ end }}
+ project_name: netbird
+ builds:
+-  - id: netbird-wasm
+-    dir: client/wasm/cmd
+-    binary: netbird
+-    env: [GOOS=js, GOARCH=wasm, CGO_ENABLED=0]
+-    goos:
+-      - js
+-    goarch:
+-      - wasm
+-    ldflags:
+-      - -s -w -X github.com/netbirdio/netbird/version.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=goreleaser
+-    mod_timestamp: "{{ .CommitTimestamp }}"
+-
+   - id: netbird
+     dir: client
+     binary: netbird
+@@ -273,7 +261,7 @@ dockers_v2:
+        - netbirdio/netbird
+        - ghcr.io/netbirdio/netbird
+      tags:
+-       - "v{{ .Version }}-rootless"
++       - "{{ .Version }}-rootless"
+        - "{{ if eq .Env.SKIP_PUBLISH \"false\" }}latest{{ end }}"
+      dockerfile: client/Dockerfile-rootless
+      extra_files:
+diff --git a/nfpm-amd64.yaml b/nfpm-amd64.yaml
+new file mode 100644
+index 000000000..4bc7b2b22
+--- /dev/null
++++ b/nfpm-amd64.yaml
+@@ -0,0 +1,19 @@
++name: "netbird"
++arch: "amd64"
++platform: "linux"
++version: "0.68.1-awg.1"
++section: "net"
++priority: "optional"
++maintainer: "LegionGames <admin@legiongames.ru>"
++description: NetBird client with AmneziaWG support for censored networks
++vendor: "NetBird GmbH"
++homepage: "https://netbird.io"
++license: "BSD-3-Clause"
++
++contents:
++  - src: /tmp/netbird-linux-amd64
++    dst: /usr/bin/netbird
++
++scripts:
++  postinstall: release_files/post_install.sh
++  preremove: release_files/pre_remove.sh
+diff --git a/nfpm-arm64.yaml b/nfpm-arm64.yaml
+new file mode 100644
+index 000000000..450e49750
+--- /dev/null
++++ b/nfpm-arm64.yaml
+@@ -0,0 +1,19 @@
++name: "netbird"
++arch: "arm64"
++platform: "linux"
++version: "0.68.1-awg.1"
++section: "net"
++priority: "optional"
++maintainer: "LegionGames <admin@legiongames.ru>"
++description: NetBird client with AmneziaWG support for censored networks
++vendor: "NetBird GmbH"
++homepage: "https://netbird.io"
++license: "BSD-3-Clause"
++
++contents:
++  - src: /tmp/netbird-linux-arm64
++    dst: /usr/bin/netbird
++
++scripts:
++  postinstall: release_files/post_install.sh
++  preremove: release_files/pre_remove.sh
+diff --git a/nfpm.yaml b/nfpm.yaml
+new file mode 100644
+index 000000000..6d2c54988
+--- /dev/null
++++ b/nfpm.yaml
+@@ -0,0 +1,19 @@
++name: "netbird"
++arch: "${ARCH}"
++platform: "linux"
++version: "0.68.1-awg.1"
++section: "net"
++priority: "optional"
++maintainer: "LegionGames <admin@legiongames.ru>"
++description: NetBird client with AmneziaWG support for censored networks
++vendor: "NetBird GmbH"
++homepage: "https://netbird.io"
++license: "BSD-3-Clause"
++
++contents:
++  - src: /tmp/deb-${ARCH}/usr/bin/netbird
++    dst: /usr/bin/netbird
++
++scripts:
++  postinstall: release_files/post_install.sh
++  preremove: release_files/pre_remove.sh

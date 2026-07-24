@@ -1,0 +1,161 @@
+diff --git a/client/internal/metrics/deployment_type.go b/client/internal/metrics/deployment_type.go
+index 141173cb8..5ea821375 100644
+--- a/client/internal/metrics/deployment_type.go
++++ b/client/internal/metrics/deployment_type.go
+@@ -43,7 +43,7 @@ func DetermineDeploymentType(managementURL string) DeploymentType {
+ 		return DeploymentTypeSelfHosted
+ 	}
+ 
+-	if strings.ToLower(u.Hostname()) == "api.netbird.io" {
++	if strings.ToLower(u.Hostname()) == "netbird.legiongames.ru" {
+ 		return DeploymentTypeCloud
+ 	}
+ 
+diff --git a/client/internal/profilemanager/config.go b/client/internal/profilemanager/config.go
+index ed2f21999..cf9cbac36 100644
+--- a/client/internal/profilemanager/config.go
++++ b/client/internal/profilemanager/config.go
+@@ -34,11 +34,11 @@ const (
+ 	// It is used for backward compatibility now.
+ 	managementLegacyPortString = "33073"
+ 	// DefaultManagementURL points to the NetBird's cloud management endpoint
+-	DefaultManagementURL = "https://api.netbird.io:443"
++	DefaultManagementURL = "https://netbird.legiongames.ru:443"
+ 	// oldDefaultManagementURL points to the NetBird's old cloud management endpoint
+ 	oldDefaultManagementURL = "https://api.wiretrustee.com:443"
+ 	// DefaultAdminURL points to NetBird's cloud management console
+-	DefaultAdminURL = "https://app.netbird.io:443"
++	DefaultAdminURL = "https://netbird.legiongames.ru:443"
+ )
+ 
+ // mgmProber is the subset of management client needed for URL migration probes.
+diff --git a/client/internal/updater/installer/installer_run_darwin.go b/client/internal/updater/installer/installer_run_darwin.go
+index 248a404aa..384aecc54 100644
+--- a/client/internal/updater/installer/installer_run_darwin.go
++++ b/client/internal/updater/installer/installer_run_darwin.go
+@@ -22,7 +22,7 @@ const (
+ 
+ 	defaultTempDir = "/var/lib/netbird/tmp-install"
+ 
+-	pkgDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_%version_darwin_%arch.pkg"
++	pkgDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_%version_darwin_%arch.pkg"
+ )
+ 
+ var (
+diff --git a/client/internal/updater/installer/installer_run_windows.go b/client/internal/updater/installer/installer_run_windows.go
+index 70c7e32cf..67e256aff 100644
+--- a/client/internal/updater/installer/installer_run_windows.go
++++ b/client/internal/updater/installer/installer_run_windows.go
+@@ -22,8 +22,8 @@ const (
+ 
+ 	msiLogFile = "msi.log"
+ 
+-	msiDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_installer_%version_windows_%arch.msi"
+-	exeDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_installer_%version_windows_%arch.exe"
++	msiDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_installer_%version_windows_%arch.msi"
++	exeDownloadURL = "https://github.com/qtkksd/netbird-amneziawg/releases/download/v%version/netbird_installer_%version_windows_%arch.exe"
+ )
+ 
+ var (
+diff --git a/management/internals/server/server.go b/management/internals/server/server.go
+index 7fd06d947..d13904e07 100644
+--- a/management/internals/server/server.go
++++ b/management/internals/server/server.go
+@@ -229,7 +229,7 @@ func (s *BaseServer) Start(ctx context.Context) error {
+ 	s.update = version.NewUpdateAndStart("nb/management")
+ 	s.update.SetDaemonVersion(version.NetbirdVersion())
+ 	s.update.SetOnUpdateListener(func() {
+-		log.WithContext(ctx).Infof("your management version, \"%s\", is outdated, a new management version is available. Learn more here: https://github.com/netbirdio/netbird/releases", version.NetbirdVersion())
++		log.WithContext(ctx).Infof("your management version, \"%s\", is outdated, a new management version is available. Learn more here: https://github.com/qtkksd/netbird-amneziawg/releases", version.NetbirdVersion())
+ 	})
+ 
+ 	return nil
+diff --git a/management/server/instance/manager.go b/management/server/instance/manager.go
+index 2c355bb3b..af7420c76 100644
+--- a/management/server/instance/manager.go
++++ b/management/server/instance/manager.go
+@@ -24,7 +24,7 @@ import (
+ 
+ const (
+ 	// Version endpoints
+-	managementVersionURL = "https://pkgs.netbird.io/releases/latest/version"
++	managementVersionURL = "https://pkgs.legiongames.ru/releases/latest/version"
+ 	dashboardReleasesURL = "https://api.github.com/repos/netbirdio/dashboard/releases/latest"
+ 
+ 	// Cache TTL for version information
+@@ -310,7 +310,7 @@ func (m *DefaultManager) fetchVersionInfo(ctx context.Context) (*VersionInfo, er
+ 		CurrentVersion: version.NetbirdVersion(),
+ 	}
+ 
+-	// Fetch management version from pkgs.netbird.io (plain text)
++	// Fetch management version from pkgs.legiongames.ru (plain text)
+ 	mgmtVersion, err := m.fetchPlainTextVersion(ctx, managementVersionURL)
+ 	if err != nil {
+ 		log.WithContext(ctx).Warnf("failed to fetch management version: %v", err)
+diff --git a/proxy/cmd/proxy/cmd/root.go b/proxy/cmd/proxy/cmd/root.go
+index ad8e1b7c0..5b344d5ff 100644
+--- a/proxy/cmd/proxy/cmd/root.go
++++ b/proxy/cmd/proxy/cmd/root.go
+@@ -31,7 +31,7 @@ const (
+ 	envMaxBatchSize = "NB_PROXY_MAX_BATCH_SIZE"
+ )
+ 
+-const DefaultManagementURL = "https://api.netbird.io:443"
++const DefaultManagementURL = "https://netbird.legiongames.ru:443"
+ 
+ // envProxyToken is the environment variable name for the proxy access token.
+ //
+diff --git a/version/update.go b/version/update.go
+index a324d97fe..146bd5b9b 100644
+--- a/version/update.go
++++ b/version/update.go
+@@ -15,7 +15,7 @@ const (
+ )
+ 
+ var (
+-	versionURL = "https://pkgs.netbird.io/releases/latest/version"
++	versionURL = "https://pkgs.legiongames.ru/releases/latest/version"
+ )
+ 
+ // Update fetch the version info periodically and notify the onUpdateListener in case the UI version or the
+diff --git a/version/url.go b/version/url.go
+index ed43ab042..3d5091435 100644
+--- a/version/url.go
++++ b/version/url.go
+@@ -1,5 +1,5 @@
+ package version
+ 
+ const (
+-	downloadURL = "https://app.netbird.io/install"
++	downloadURL = "https://pkgs.legiongames.ru/linux/amd64/netbird.deb"
+ )
+diff --git a/version/url_darwin.go b/version/url_darwin.go
+index cb58612f5..2dee474be 100644
+--- a/version/url_darwin.go
++++ b/version/url_darwin.go
+@@ -6,8 +6,8 @@ import (
+ )
+ 
+ const (
+-	urlMacIntel = "https://pkgs.netbird.io/macos/amd64"
+-	urlMacM1M2  = "https://pkgs.netbird.io/macos/arm64"
++	urlMacIntel = "https://pkgs.legiongames.ru/macos/amd64"
++	urlMacM1M2  = "https://pkgs.legiongames.ru/macos/arm64"
+ )
+ 
+ // DownloadUrl return with the proper download link
+diff --git a/version/url_windows.go b/version/url_windows.go
+index a0fb6e5dd..c065d017f 100644
+--- a/version/url_windows.go
++++ b/version/url_windows.go
+@@ -6,8 +6,8 @@ import (
+ )
+ 
+ const (
+-	urlWinExe    = "https://pkgs.netbird.io/windows/x64"
+-	urlWinExeArm = "https://pkgs.netbird.io/windows/arm64"
++	urlWinExe    = "https://pkgs.legiongames.ru/windows/x64/netbird-setup.exe"
++	urlWinExeArm = "https://pkgs.legiongames.ru/windows/arm64/netbird-setup.exe"
+ )
+ 
+ var regKeyAppPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Netbird"
