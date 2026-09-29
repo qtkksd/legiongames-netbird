@@ -14,12 +14,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
-	wgdevice "golang.zx2c4.com/wireguard/device"
 
 	nberrors "github.com/netbirdio/netbird/client/errors"
 	"github.com/netbirdio/netbird/client/firewall/firewalld"

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	wgConn "github.com/amnezia-vpn/amneziawg-go/conn"
 	"github.com/pion/stun/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/ipv4"
-	wgConn "golang.zx2c4.com/wireguard/conn"
 )
 
 // magicCookieBytes is the STUN magic cookie as it appears on the wire. In a
@@ -147,7 +147,7 @@ func TestReceiveFn_ClearsSizeOfConsumedPacket(t *testing.T) {
 	conn := listenUDP(t, "udp4", "127.0.0.1:0")
 	defer conn.Close()
 
-	recvFn := receiverCreator{setupICEBind(t)}.CreateReceiverFn(
+	recvFn := receiverCreator{setupICEBind(t)}.CreateIPv4ReceiverFn(
 		ipv4.NewPacketConn(conn), conn, false, createMsgPool(),
 	)
 

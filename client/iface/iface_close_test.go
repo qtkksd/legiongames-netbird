@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	wgdevice "golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/tun/netstack"
+	wgdevice "github.com/amnezia-vpn/amneziawg-go/device"
+	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
 
 	"github.com/netbirdio/netbird/client/iface/device"
 	"github.com/netbirdio/netbird/client/iface/udpmux"
@@ -34,14 +34,14 @@ func (f *fakeTunDevice) Create() (device.WGConfigurer, error) {
 func (f *fakeTunDevice) Up() (*udpmux.UniversalUDPMuxDefault, error) {
 	return nil, errors.New("not implemented")
 }
-func (f *fakeTunDevice) UpdateAddr(wgaddr.Address) error      { return nil }
-func (f *fakeTunDevice) WgAddress() wgaddr.Address            { return wgaddr.Address{} }
-func (f *fakeTunDevice) MTU() uint16                          { return DefaultMTU }
-func (f *fakeTunDevice) DeviceName() string                   { return "nb-close-test" }
+func (f *fakeTunDevice) UpdateAddr(wgaddr.Address) error        { return nil }
+func (f *fakeTunDevice) WgAddress() wgaddr.Address              { return wgaddr.Address{} }
+func (f *fakeTunDevice) MTU() uint16                            { return DefaultMTU }
+func (f *fakeTunDevice) DeviceName() string                     { return "nb-close-test" }
 func (f *fakeTunDevice) FilteredDevice() *device.FilteredDevice { return nil }
-func (f *fakeTunDevice) Device() *wgdevice.Device             { return nil }
-func (f *fakeTunDevice) GetNet() *netstack.Net                { return nil }
-func (f *fakeTunDevice) GetICEBind() device.EndpointManager   { return nil }
+func (f *fakeTunDevice) Device() *wgdevice.Device               { return nil }
+func (f *fakeTunDevice) GetNet() *netstack.Net                  { return nil }
+func (f *fakeTunDevice) GetICEBind() device.EndpointManager     { return nil }
 
 func (f *fakeTunDevice) Close() error {
 	close(f.closeStarted)

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	wgConn "github.com/amnezia-vpn/amneziawg-go/conn"
 	"github.com/stretchr/testify/require"
-	wgConn "golang.zx2c4.com/wireguard/conn"
 )
 
 // startReceivers runs every receive function the way wireguard-go's device
