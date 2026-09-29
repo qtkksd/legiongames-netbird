@@ -14,10 +14,12 @@ import (
 	"golang.org/x/crypto/acme"
 
 	"github.com/netbirdio/netbird/shared/management/domain"
+	"github.com/netbirdio/netbird/shared/profiling"
 
 	"github.com/netbirdio/netbird/client/embed"
 	"github.com/netbirdio/netbird/proxy"
 	nbacme "github.com/netbirdio/netbird/proxy/internal/acme"
+	"github.com/netbirdio/netbird/trustedproxy"
 	"github.com/netbirdio/netbird/util"
 )
 
@@ -29,6 +31,8 @@ const (
 	// how many buffers each receive/TUN worker eagerly allocates. Zero
 	// (unset) keeps the platform default.
 	envMaxBatchSize = "NB_PROXY_MAX_BATCH_SIZE"
+
+	applicationName = "proxy"
 )
 
 const DefaultManagementURL = "https://netbird.legiongames.ru:443"
@@ -159,6 +163,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	logger.Infof("configured log level: %s", level)
 
+	stopProfiling := profiling.Start(applicationName)
+	defer stopProfiling()
+
 	var wgPool, wgBatch uint64
 	var perf embed.Performance
 	if raw := os.Getenv(envPreallocatedBuffers); raw != "" {
@@ -209,7 +216,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid domain value %q: %w", proxyDomain, err)
 	}
 
-	parsedTrustedProxies, err := proxy.ParseTrustedProxies(trustedProxies)
+	parsedTrustedProxies, err := trustedproxy.Parse(trustedProxies)
 	if err != nil {
 		return fmt.Errorf("invalid --trusted-proxies: %w", err)
 	}
