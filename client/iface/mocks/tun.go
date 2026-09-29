@@ -8,8 +8,8 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	tun "github.com/amnezia-vpn/amneziawg-go/tun"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDevice is a mock of Device interface.
