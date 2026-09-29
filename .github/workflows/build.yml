@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  GORELEASER_VER: "v2.14.3"
+  GORELEASER_VER: "v2.16.0"
   PRODUCT_NAME: "NetBird"
   COPYRIGHT: "NetBird GmbH"
   SKIP_DOCKER_PUSH: "true"
