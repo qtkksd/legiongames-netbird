@@ -62,7 +62,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Install goversioninfo
-        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@233067e
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@b66839b # v1.7.0
       - name: Generate windows syso amd64
         run: goversioninfo  -icon client/ui/build/windows/icon.ico -manifest client/manifest.xml -product-name ${{ env.PRODUCT_NAME }} -copyright "${{ env.COPYRIGHT }}" -ver-major ${{ steps.semver_parser.outputs.major }} -ver-minor ${{ steps.semver_parser.outputs.minor }} -ver-patch ${{ steps.semver_parser.outputs.patch }} -ver-build 0 -file-version ${{ steps.semver_parser.outputs.fullversion }}.0 -product-version ${{ steps.semver_parser.outputs.fullversion }}.0 -o client/resources_windows_amd64.syso
       - name: Generate windows syso arm64
@@ -162,7 +162,7 @@ jobs:
           tar -xf llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
           echo "/tmp/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
       - name: Install goversioninfo
-        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@233067e
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@b66839b # v1.7.0
       - name: Install wails3
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
       - name: Install pnpm
