@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version endpoints
-	managementVersionURL = "https://pkgs.legiongames.ru/releases/latest/version"
+	managementVersionURL = "https://pkgs.legiongames.ru/netbird/latest/version"
 	dashboardReleasesURL = "https://api.github.com/repos/netbirdio/dashboard/releases/latest"
 
 	// Cache TTL for version information
