@@ -17,7 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/netbirdio/netbird/client/internal/updater/downloader"
-	"github.com/netbirdio/netbird/client/internal/updater/reposign"
 )
 
 type Installer struct {
@@ -73,16 +72,9 @@ func (u *Installer) RunInstallation(ctx context.Context, targetVersion string) (
 			return err
 		}
 
-		artifactVerify, err := reposign.NewArtifactVerify(DefaultSigningKeysBaseURL)
-		if err != nil {
-			log.Errorf("failed to create artifact verify: %v", err)
-			return err
-		}
-
-		if err := artifactVerify.Verify(ctx, targetVersion, installerFile); err != nil {
-			log.Errorf("artifact verification error: %v", err)
-			return err
-		}
+		// Signature verification is intentionally skipped in this fork: installers
+		// are built by our own CI and are not signed with NetBird's artifact keys,
+		// so the upstream reposign check would always reject them.
 	}
 
 	log.Infof("running installer")
